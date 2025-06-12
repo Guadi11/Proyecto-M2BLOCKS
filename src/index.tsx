@@ -4,3 +4,4 @@ import Game from './Game';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
   .render(<Game />);
+ 
