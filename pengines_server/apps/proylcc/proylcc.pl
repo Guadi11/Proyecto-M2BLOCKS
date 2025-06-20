@@ -77,13 +77,147 @@ reemplazarEnIndiceAux([H|T], Index, X, [H|T2], N) :-
     N1 is N + 1,
     reemplazarEnIndiceAux(T, Index, X, T2, N1).
 
+fusionar_bloques(B1, B2, B3, Resultado) :-
+    Suma is B1 + B2 + B3,
+    calcular_nuevo_bloque(Suma, Resultado).
 
-shoot(Block, Col, Grid, NumCols, [effect(NuevoGrid, [])]) :-
+calcular_nuevo_bloque(Suma, Nuevo) :-
+    Nuevo is Suma. 
+ 
+% filtrar_iguales(+Valor, +Lista[(Pos,Valor)], -SoloIguales)
+filtrar_iguales(_, [], []).
+
+filtrar_iguales(Valor, [(P,V)|T], [(P,V)|R]) :- %el primer elemento adyacente coincide con el bloque shooteado
+    V = Valor, !,
+    filtrar_iguales(Valor, T, R).
+
+filtrar_iguales(Valor, [_|T], R) :-
+    filtrar_iguales(Valor, T, R).
+/*
+% subir_columnas(+Grid, +NumCols, -NuevoGrid)
+subir_columnas(Grid, NumCols, NuevoGridFinal) :-
+    length(Grid, Len),
+    NumFilas is Len // NumCols,
+    subir_columnas_aux(Grid, NumCols, NumFilas, 0, NuevoGridFinal).
+
+% subir_columnas_aux(+Grid, +NumCols, +NumFilas, +ColActual, -GridFinal)
+subir_columnas_aux(Grid, NumCols, NumFilas, Col, Grid) :-
+    Col >= NumCols, !.  % fin de columnas, no se modifica más.
+
+subir_columnas_aux(Grid, NumCols, NumFilas, Col, GridFinal) :-
+    subir_en_columna(Grid, Col, NumFilas, NumCols, GridParcial),
+    ColSig is Col + 1,
+    subir_columnas_aux(GridParcial, NumCols, NumFilas, ColSig, GridFinal).
+
+% subir_en_columna(+Grid, +Col, +NumFilas, +NumCols, -NuevoGrid)
+subir_en_columna(Grid, Col, NumFilas, NumCols, NuevoGrid) :-
+    subir_en_columna_aux(Grid, Col, NumFilas, NumCols, 0, NuevoGrid).
+
+% subir_en_columna_aux(+Grid, +Col, +NumFilas, +NumCols, +Fila, -GridFinal)
+subir_en_columna_aux(Grid, _, NumFilas, _, Fila, Grid) :-
+    Fila >= NumFilas - 1, !.  % fin de filas.
+
+subir_en_columna_aux(Grid, Col, NumFilas, NumCols, Fila, GridFinal) :-
+    Index is Fila * NumCols + Col,
+    Debajo is Index + NumCols,
+    nth0(Index, Grid, '-'),
+    nth0(Debajo, Grid, Valor),
+    Valor \= '-',
+    reemplazarEnIndice(Grid, Index, Valor, GridTemp),
+    reemplazarEnIndice(GridTemp, Debajo, '-', GridSubido),
+    FilaSig is Fila + 1,
+    subir_en_columna_aux(GridSubido, Col, NumFilas, NumCols, FilaSig, GridFinal), !.
+
+subir_en_columna_aux(Grid, Col, NumFilas, NumCols, Fila, GridFinal) :-
+    FilaSig is Fila + 1,
+    subir_en_columna_aux(Grid, Col, NumFilas, NumCols, FilaSig, GridFinal).
+*/
+aplicar_fusion(Grid, Pos, Block, [], _, _, Grid).
+
+aplicar_fusion(Grid, Pos, Block, [(P1,_)], NumCols, ValorFusionado, NuevoGrid) :-
+    ValorFusionado is Block + Block,
+    reemplazarEnIndice(Grid, P1, '-', Grid1),
+    reemplazarEnIndice(Grid1, Pos, ValorFusionado, Grid2),
+    Subida is Pos - NumCols,
+    (   Subida >= 0,  %hubo combinacion con bloque superior y tengo q ascender el nuevo creado
+        nth0(Subida, Grid2, '-')
+    ->  reemplazarEnIndice(Grid2, Pos, '-', Grid3),
+        reemplazarEnIndice(Grid3, Subida, ValorFusionado, NuevoGrid)
+    ;   NuevoGrid = Grid2
+    ).
+
+aplicar_fusion(Grid, Pos, Block, [(P1,_),(P2,_)], NumCols, ValorFusionado, NuevoGrid) :-
+    ValorFusionado is Block * 4,
+    reemplazarEnIndice(Grid, P1, '-', G1),
+    reemplazarEnIndice(G1, P2, '-', G2),
+    reemplazarEnIndice(G2, Pos, ValorFusionado, G3),
+    Subida is Pos - NumCols,
+    (   Subida >= 0,
+        nth0(Subida, G3, '-')
+    ->  reemplazarEnIndice(G3, Pos, '-', G4),
+        reemplazarEnIndice(G4, Subida, ValorFusionado, NuevoGrid)
+    ;   NuevoGrid = G3
+    ).
+
+aplicar_fusion(Grid, Pos, Block, [(P1,_),(P2,_),(P3,_)], NumCols, ValorFusionado, NuevoGrid) :-
+    ValorFusionado is Block * 8,
+    reemplazarEnIndice(Grid, P1, '-', G1),
+    reemplazarEnIndice(G1, P2, '-', G2),
+    reemplazarEnIndice(G2, P3, '-', G3),
+    reemplazarEnIndice(G3, Pos, ValorFusionado, G3),
+    Subida is Pos - NumCols,
+    (   Subida >= 0,
+        nth0(Subida, G3, '-')
+    ->  reemplazarEnIndice(G3, Pos, '-', G4),
+        reemplazarEnIndice(G4, Subida, ValorFusionado, NuevoGrid)
+    ;   NuevoGrid = G3
+    ).
+
+% adyacentes(+Grid, +Pos, +NumCols, -Adyacentes)
+adyacentes(Grid, Pos, NumCols, Adyacentes) :-
+    length(Grid, Len),
+    LeftIndex is Pos - 1,
+    RightIndex is Pos + 1,
+    UpIndex is Pos - NumCols,
+    findall((Idx, Val), (
+        (LeftIndex >= 0,
+         Pos mod NumCols =\= 0, % no está en la primer columna
+         nth0(LeftIndex, Grid, Val),
+         Val \= '-', Idx = LeftIndex);
+        (RightIndex < Len,
+         (RightIndex) mod NumCols =\= 0, % no está en la última columna
+         nth0(RightIndex, Grid, Val),
+         Val \= '-', Idx = RightIndex); %valida que haya un bloque y no este vacío
+        (UpIndex >= 0,
+         nth0(UpIndex, Grid, Val),
+         Val \= '-', Idx = UpIndex)
+    ), Adyacentes).
+
+efectos(Grid, Pos, Block, NumCols, NuevoGridFinal) :-
+    adyacentes(Grid, Pos, NumCols, Adyacentes),
+    filtrar_iguales(Block, Adyacentes, Iguales),
+    aplicar_fusion(Grid, Pos, Block, Iguales, NumCols, ValorFusionado, GridFusionado),
+    NuevoGridFinal = GridFusionado.
+
+% loop_efectos(+GridActual, +Pos, +Valor, +NumCols, -GridFinal)
+loop_efectos(Grid, Pos, Block, NumCols, FinalGrid) :-
+    efectos(Grid, Pos, Block, NumCols, Grid2),
+    (   Grid == Grid2       %no encontró más combinaciones posibles
+    ->  FinalGrid = Grid  
+    %subir_columnas(Grid2, NumCols, GridFinal) %Subida final
+    ;   nth0(Pos, Grid2, NuevoValor),  %busca en la grilla resultante el nuevo valor generado y llama a loop
+        loop_efectos(Grid2, Pos, NuevoValor, NumCols, FinalGrid)
+        %subir_columnas(Grid3, NumCols, GridFinal)
+    ).
+
+
+shoot(Block, Col, Grid, NumCols, [effect(GridFinal, [])]) :-
  ColIndex is Col - 1,
     length(Grid, Len),
     NumFilas is Len // NumCols,
     buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, Pos),
-    reemplazarEnIndice(Grid, Pos, Block, NuevoGrid).
+    reemplazarEnIndice(Grid, Pos, Block, NuevoGrid),
+    loop_efectos(NuevoGrid, Pos, Block, NumCols, GridFinal).
 
 
 
