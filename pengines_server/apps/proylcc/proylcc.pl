@@ -101,7 +101,15 @@ subir_columnas(Grid, NumCols, NuevoGridFinal) :-
     subir_columnas_aux(Grid, NumCols, NumFilas, 0, NuevoGridFinal).
 
 
-subir_columnas_aux(Grid, NumCols, NumFilas, Col, Grid) :-
+
+% subir_columnas(+Grid, +NumCols, -NuevoGrid)
+subir_columnas(Grid, NumCols, NuevoGridFinal) :-
+    length(Grid, Len),
+    NumFilas is Len 
+    subir_columnas_aux(Grid, NumCols, NumFilas, 0, NuevoGridFinal).
+
+
+   subir_columnas_aux(Grid, NumCols, NumFilas, Col, Grid) :-
     Col >= NumCols, !.  % fin de columnas, no se modifica más.
 
 subir_columnas_aux(Grid, NumCols, NumFilas, Col, GridFinal) :-
@@ -133,6 +141,7 @@ subir_en_columna_aux(Grid, Col, NumFilas, NumCols, Fila, GridFinal) :-
     subir_en_columna_aux(Grid, Col, NumFilas, NumCols, FilaSig, GridFinal).
 */
 
+
 aplicar_fusion(Grid, Pos, Block, [], _, _, Grid, _).
 
 aplicar_fusion(Grid, Pos, Block, [(P1,_)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
@@ -143,13 +152,14 @@ aplicar_fusion(Grid, Pos, Block, [(P1,_)], NumCols, ValorFusionado, NuevoGrid, N
     (   Subida >= 0,  %hubo combinacion con bloque superior y tengo q ascender el nuevo creado
         nth0(Subida, Grid2, '-')
     ->  reemplazarEnIndice(Grid2, Pos, '-', Grid3),
+
         reemplazarEnIndice(Grid3, Subida, ValorFusionado, NuevoGrid),
         NuevaPos is Subida
     ;   NuevoGrid = Grid2,
     NuevaPos is Pos
     ).
 
-aplicar_fusion(Grid, Pos, Block, [(P1,),(P2,)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
+aplicar_fusion(Grid, Pos, Block, [(P1,_),(P2,_)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
     ValorFusionado is Block * 4,
     reemplazarEnIndice(Grid, P1, '-', G1),
     reemplazarEnIndice(G1, P2, '-', G2),
@@ -164,7 +174,8 @@ aplicar_fusion(Grid, Pos, Block, [(P1,),(P2,)], NumCols, ValorFusionado, NuevoGr
     NuevaPos is Pos
     ).
 
-aplicar_fusion(Grid, Pos, Block, [(P1,),(P2,),(P3,_)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
+aplicar_fusion(Grid, Pos, Block, [(P1,_),(P2,_),(P3,_)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
+
     ValorFusionado is Block * 8,
     reemplazarEnIndice(Grid, P1, '-', G1),
     reemplazarEnIndice(G1, P2, '-', G2),
@@ -177,7 +188,7 @@ aplicar_fusion(Grid, Pos, Block, [(P1,),(P2,),(P3,_)], NumCols, ValorFusionado, 
         reemplazarEnIndice(G4, Subida, ValorFusionado, NuevoGrid),
         NuevaPos is Subida
     ;   NuevoGrid = G3,
-    NuevaPos is Pos
+         NuevaPos is Pos
     ).
 
 % adyacentes(+Grid, +Pos, +NumCols, -Adyacentes)
@@ -200,11 +211,13 @@ adyacentes(Grid, Pos, NumCols, Adyacentes) :-
          Val \= '-', Idx = UpIndex)
     ), Adyacentes).
 
+
 efectos(Grid, Pos, Block, NumCols, NuevoGridFinal, NuevaPos2) :-
     adyacentes(Grid, Pos, NumCols, Adyacentes),
     filtrar_iguales(Block, Adyacentes, Iguales),
     aplicar_fusion(Grid, Pos, Block, Iguales, NumCols, ValorFusionado, GridFusionado, NuevaPos2),
     NuevoGridFinal = GridFusionado.
+
 
 % loop_efectos(+GridActual, +Pos, +Valor, +NumCols, -GridFinal)
 loop_efectos(Grid, Pos, Block, NumCols, FinalGrid) :-
@@ -217,7 +230,6 @@ loop_efectos(Grid, Pos, Block, NumCols, FinalGrid) :-
     ).
 
 
-
 shoot(Block, Col, Grid, NumCols, [effect(GridFinal, [])]) :-
  ColIndex is Col - 1,
     length(Grid, Len),
@@ -225,3 +237,6 @@ shoot(Block, Col, Grid, NumCols, [effect(GridFinal, [])]) :-
     buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, Pos),
     reemplazarEnIndice(Grid, Pos, Block, NuevoGrid),
     loop_efectos(NuevoGrid, Pos, Block, NumCols, GridFinal).
+
+
+
