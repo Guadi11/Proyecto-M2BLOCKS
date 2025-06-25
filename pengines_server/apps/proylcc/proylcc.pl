@@ -134,7 +134,7 @@ aplicar_fusion(Grid, Pos, Block, [(P1,_)], NumCols, ValorFusionado, NuevoGrid, N
     NuevaPos is Pos
     ).
 
-aplicar_fusion(Grid, Pos, Block, [(P1,_),(P2,_)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
+aplicar_fusion(Grid, Pos, Block, [(P1,),(P2,)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
     ValorFusionado is Block * 4,
     reemplazarEnIndice(Grid, P1, '-', G1),
     reemplazarEnIndice(G1, P2, '-', G2),
@@ -149,7 +149,7 @@ aplicar_fusion(Grid, Pos, Block, [(P1,_),(P2,_)], NumCols, ValorFusionado, Nuevo
     NuevaPos is Pos
     ).
 
-aplicar_fusion(Grid, Pos, Block, [(P1,_),(P2,_),(P3,_)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
+aplicar_fusion(Grid, Pos, Block, [(P1,),(P2,),(P3,_)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
 
     ValorFusionado is Block * 8,
     reemplazarEnIndice(Grid, P1, '-', G1),
@@ -289,6 +289,4 @@ shoot(Block, Col, Grid, NumCols, [effect(GridFinal, [])]) :-
     buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, Pos),
     reemplazarEnIndice(Grid, Pos, Block, GridInsertado),
     loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones),
-    aplicar_gravedad(GridFusiones, NumCols, GridConGravedad),
-    chequear_efectos_general(GridConGravedad, NumCols, ListaEfectos),
-    ( ListaEfectos = [effect(GridFinal, [])|_] -> true ; GridFinal = GridConGravedad ).
+    chequear_efectos_general(GridFusiones, NumCols, GridFinal).
