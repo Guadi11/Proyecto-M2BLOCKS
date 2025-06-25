@@ -34,7 +34,7 @@ obtener_rango(512, [2,4,8,16,32,64]):-!.
 obtener_rango(_, [2,4]).  % caso por si la grilla esta vacia 
 
 
-/**
+/*
  * shoot(+Block, +Column, +Grid, +NumOfColumns, -Effects) 
  * RGrids es la lista de grillas representando el efecto, en etapas, de combinar las celdas del camino Path
  * en la grilla Grid, con número de columnas NumOfColumns. El número 0 representa que la celda está vacía. 
@@ -55,6 +55,8 @@ buscarDesdeFila(_, _, _, Fila, NumFilas, _) :-
 
 buscarDesdeFila(Grid, Col, NumCols, Fila, NumFilas, Indice) :-
     Pos is Fila * NumCols + Col,
+    length(Grid, Len),
+    Pos < Len,
     nth0(Pos, Grid, '-'), !,
     Indice = Pos.
 
@@ -124,7 +126,7 @@ aplicar_fusion(Grid, Pos, Block, [(P1,_)], NumCols, ValorFusionado, NuevoGrid, N
     reemplazarEnIndice(Grid, P1, '-', Grid1),
     reemplazarEnIndice(Grid1, Pos, ValorFusionado, Grid2),
     Subida is Pos - NumCols,
-    (   Subida >= 0,  %hubo combinacion con bloque superior y tengo q ascender el nuevo creado
+    (   Subida >= 0,  
         nth0(Subida, Grid2, '-')
     ->  reemplazarEnIndice(Grid2, Pos, '-', Grid3),
 
@@ -134,7 +136,7 @@ aplicar_fusion(Grid, Pos, Block, [(P1,_)], NumCols, ValorFusionado, NuevoGrid, N
     NuevaPos is Pos
     ).
 
-aplicar_fusion(Grid, Pos, Block, [(P1,),(P2,)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
+aplicar_fusion(Grid, Pos, Block, [(P1,_),(P2,_)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
     ValorFusionado is Block * 4,
     reemplazarEnIndice(Grid, P1, '-', G1),
     reemplazarEnIndice(G1, P2, '-', G2),
@@ -149,7 +151,7 @@ aplicar_fusion(Grid, Pos, Block, [(P1,),(P2,)], NumCols, ValorFusionado, NuevoGr
     NuevaPos is Pos
     ).
 
-aplicar_fusion(Grid, Pos, Block, [(P1,),(P2,),(P3,_)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
+aplicar_fusion(Grid, Pos, Block, [(P1,_),(P2,_),(P3,_)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
 
     ValorFusionado is Block * 8,
     reemplazarEnIndice(Grid, P1, '-', G1),
@@ -180,7 +182,7 @@ adyacentes(Grid, Pos, NumCols, Adyacentes) :-
         (RightIndex < Len,
          (RightIndex) mod NumCols =\= 0, % no está en la última columna
          nth0(RightIndex, Grid, Val),
-         Val \= '-', Idx = RightIndex); %valida que haya un bloque y no este vacío
+         Val \= '-', Idx = RightIndex);
         (UpIndex >= 0,
          nth0(UpIndex, Grid, Val),
          Val \= '-', Idx = UpIndex)
@@ -196,7 +198,7 @@ efectos(Grid, Pos, Block, NumCols, NuevoGridFinal, NuevaPos2) :-
 % Transforma grilla en columnas
 grilla_a_columnas(Grid, NumCols, Columnas) :-
     length(Grid, Len),
-    NumFilas is Len, 
+    NumFilas is Len // NumCols,
     TopeCol is NumCols-1,
     TopeFila is NumFilas-1,
     findall(Columna, (
@@ -224,7 +226,9 @@ columnas_a_grilla(Columnas, Grid) :-
     transpose(Columnas, FilasPorFila),
     flatten(FilasPorFila, Grid).
 
-% Gravedad completa
+/*aplicar_gravedad(Grid, _, Grid).*/
+
+
 aplicar_gravedad(Grid, NumCols, GridConGravedad) :-
     grilla_a_columnas(Grid, NumCols, Columnas),
     maplist(gravedad_columna, Columnas, NuevasColumnas),
@@ -246,13 +250,13 @@ llamar_efectos_adyacentes(Grilla2, PosicionResultante, NumCols, GridFin):-
 
     
 
-loop_efectos(Grid, _, '-', _, Grid).
+loop_efectos(Grid, _, '-', _, Grid):-!.
 
-% loop_efectos(+GridActual, +Pos, +Valor, +NumCols, -GridFinal)
+
 loop_efectos(Grid, Pos, Block, NumCols, FinalGrid) :-
     efectos(Grid, Pos, Block, NumCols, Grid2, NuevaPos),
     (
-        not(Grid = Grid2) % usamos =/2 (igualdad lógica) en lugar de ==
+        not(Grid = Grid2 )
     ->  (
         aplicar_gravedad(Grid2, NumCols, GridGravedad),
         nth0(NuevaPos, GridGravedad, NuevoValor),
@@ -260,6 +264,9 @@ loop_efectos(Grid, Pos, Block, NumCols, FinalGrid) :-
         )
     ;   FinalGrid = Grid
     ).
+
+recorrer_grilla_efectos(Grilla, _, Pos, Len, Grilla) :-
+    Pos >= Len, !.  
 
 recorrer_grilla_efectos(Grilla, NumCols, Pos, Len, Resultado) :-
     nth0(Pos, Grilla, Val),
@@ -271,15 +278,32 @@ recorrer_grilla_efectos(Grilla, NumCols, Pos, Len, Resultado) :-
         recorrer_grilla_efectos(Grilla, NumCols, Pos1, Len, Resultado)
     ).
 
-% recorrer_grilla_efectos(+Grilla, +NumCols, +Pos, +Len, -Resultado)
-recorrer_grilla_efectos(Grilla, _, Pos, Len, Grilla) :-
-    Pos >= Len, !.  % no hubo más efectos
 
-% chequear_efectos_general(+Grilla, +NumCols, -GrillaFinal)
-% Recorre la grilla, aplicando efectos residuales hasta que no queden más
+recorrer_grilla_efectos(Grilla, _, Pos, Len, Grilla) :-
+    Pos >= Len, !.  
+
+chequear_efectos_general(Grid, _, Grid).
+
+chequear_efectos_general(Grid, _, Grid).
+
 chequear_efectos_general(Grilla, NumCols, GrillaFinal) :-
+    chequear_efectos_general(Grilla, NumCols, GrillaFinal, 20).  % hasta 20 iteraciones
+
+chequear_efectos_general(Grilla, _, Grilla, 0) :- !.  % caso base
+
+chequear_efectos_general(Grilla, NumCols, GrillaFinal, Iter) :-
     length(Grilla, Len),
-    recorrer_grilla_efectos(Grilla, NumCols, 0, Len, GrillaFinal).
+    recorrer_grilla_efectos(Grilla, NumCols, 0, Len, GrillaIntermedia),
+    ( GrillaIntermedia \= Grilla ->
+        Iter1 is Iter - 1,
+        chequear_efectos_general(GrillaIntermedia, NumCols, GrillaFinal, Iter1)
+    ;   GrillaFinal = Grilla
+    ).
+
+
+/*chequear_efectos_general(Grilla, NumCols, GrillaFinal) :-
+    length(Grilla, Len),
+    recorrer_grilla_efectos(Grilla, NumCols, 0, Len, GrillaFinal).*/
 
 
 shoot(Block, Col, Grid, NumCols, [effect(GridFinal, [])]) :-
