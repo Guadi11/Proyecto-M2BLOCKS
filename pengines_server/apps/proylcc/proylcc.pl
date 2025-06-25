@@ -4,6 +4,9 @@
 		shoot/5	
 	]).
 
+:- use_module(library(clpfd)).  % incluye transpose/2
+
+
 /**
  * randomBlock(+Grid, -Block)
  */
@@ -59,6 +62,26 @@ buscarDesdeFila(Grid, Col, NumCols, Fila, NumFilas, Indice) :-
     Fila1 is Fila + 1,
     buscarDesdeFila(Grid, Col, NumCols, Fila1, NumFilas, Indice).
 
+
+
+/*
+% Busca desde la última fila hacia arriba el primer índice libre ('-')
+buscarIndiceLibre(Grid, Col, NumCols, NumFilas, Indice) :-
+    UltimaFila is NumFilas - 1,
+    buscarDesdeFila(Grid, Col, NumCols, UltimaFila, Indice).
+
+buscarDesdeFila(_, _, _, -1, _) :- !, fail.
+
+buscarDesdeFila(Grid, Col, NumCols, Fila, Indice) :-
+    Pos is Fila * NumCols + Col,
+    nth0(Pos, Grid, '-'), !,
+    Indice = Pos.
+
+buscarDesdeFila(Grid, Col, NumCols, Fila, Indice) :-
+    Fila1 is Fila - 1,
+    buscarDesdeFila(Grid, Col, NumCols, Fila1, Indice).
+*/
+
 insertarBloque(Bloque, Col, Grid, NumCols, NuevoGrid) :-
     length(Grid, Len),
     NumFilas is Len // NumCols,
@@ -93,54 +116,6 @@ filtrar_iguales(Valor, [(P,V)|T], [(P,V)|R]) :- %el primer elemento adyacente co
 
 filtrar_iguales(Valor, [_|T], R) :-
     filtrar_iguales(Valor, T, R).
-/*
-
-subir_columnas(Grid, NumCols, NuevoGridFinal) :-
-    length(Grid, Len),
-    NumFilas is Len 
-    subir_columnas_aux(Grid, NumCols, NumFilas, 0, NuevoGridFinal).
-
-
-
-% subir_columnas(+Grid, +NumCols, -NuevoGrid)
-subir_columnas(Grid, NumCols, NuevoGridFinal) :-
-    length(Grid, Len),
-    NumFilas is Len 
-    subir_columnas_aux(Grid, NumCols, NumFilas, 0, NuevoGridFinal).
-
-
-   subir_columnas_aux(Grid, NumCols, NumFilas, Col, Grid) :-
-    Col >= NumCols, !.  % fin de columnas, no se modifica más.
-
-subir_columnas_aux(Grid, NumCols, NumFilas, Col, GridFinal) :-
-    subir_en_columna(Grid, Col, NumFilas, NumCols, GridParcial),
-    ColSig is Col + 1,
-    subir_columnas_aux(GridParcial, NumCols, NumFilas, ColSig, GridFinal).
-
-% subir_en_columna(+Grid, +Col, +NumFilas, +NumCols, -NuevoGrid)
-subir_en_columna(Grid, Col, NumFilas, NumCols, NuevoGrid) :-
-    subir_en_columna_aux(Grid, Col, NumFilas, NumCols, 0, NuevoGrid).
-
-% subir_en_columna_aux(+Grid, +Col, +NumFilas, +NumCols, +Fila, -GridFinal)
-subir_en_columna_aux(Grid, _, NumFilas, _, Fila, Grid) :-
-    Fila >= NumFilas - 1, !.  % fin de filas.
-
-subir_en_columna_aux(Grid, Col, NumFilas, NumCols, Fila, GridFinal) :-
-    Index is Fila * NumCols + Col,
-    Debajo is Index + NumCols,
-    nth0(Index, Grid, '-'),
-    nth0(Debajo, Grid, Valor),
-    Valor \= '-',
-    reemplazarEnIndice(Grid, Index, Valor, GridTemp),
-    reemplazarEnIndice(GridTemp, Debajo, '-', GridSubido),
-    FilaSig is Fila + 1,
-    subir_en_columna_aux(GridSubido, Col, NumFilas, NumCols, FilaSig, GridFinal), !.
-
-subir_en_columna_aux(Grid, Col, NumFilas, NumCols, Fila, GridFinal) :-
-    FilaSig is Fila + 1,
-    subir_en_columna_aux(Grid, Col, NumFilas, NumCols, FilaSig, GridFinal).
-*/
-
 
 aplicar_fusion(Grid, Pos, Block, [], _, _, Grid, _).
 
@@ -188,7 +163,7 @@ aplicar_fusion(Grid, Pos, Block, [(P1,_),(P2,_),(P3,_)], NumCols, ValorFusionado
         reemplazarEnIndice(G4, Subida, ValorFusionado, NuevoGrid),
         NuevaPos is Subida
     ;   NuevoGrid = G3,
-         NuevaPos is Pos
+       NuevaPos is Pos
     ).
 
 % adyacentes(+Grid, +Pos, +NumCols, -Adyacentes)
@@ -218,25 +193,102 @@ efectos(Grid, Pos, Block, NumCols, NuevoGridFinal, NuevaPos2) :-
     aplicar_fusion(Grid, Pos, Block, Iguales, NumCols, ValorFusionado, GridFusionado, NuevaPos2),
     NuevoGridFinal = GridFusionado.
 
+% Transforma grilla en columnas
+grilla_a_columnas(Grid, NumCols, Columnas) :-
+    length(Grid, Len),
+    NumFilas is Len, 
+    TopeCol is NumCols-1,
+    TopeFila is NumFilas-1,
+    findall(Columna, (
+        between(0, TopeCol, Col),
+        findall(Val, (
+            between(0, TopeFila, Fila),
+            Pos is Fila * NumCols + Col,
+            nth0(Pos, Grid, Val)
+        ), Columna)
+    ), Columnas).
+
+
+% Aplica gravedad a una columna (elimina '-', sube los valores)
+gravedad_columna(Columna, ColumnaFinal) :-
+    include(\=('-'), Columna, SoloValores),
+    length(Columna, Len),
+    length(SoloValores, Cant),
+    R is Len - Cant,
+    length(Relleno, R),
+    maplist(=('-'), Relleno),
+    append(SoloValores, Relleno, ColumnaFinal).
+
+% Reconvierte columnas a grilla
+columnas_a_grilla(Columnas, Grid) :-
+    transpose(Columnas, FilasPorFila),
+    flatten(FilasPorFila, Grid).
+
+% Gravedad completa
+aplicar_gravedad(Grid, NumCols, GridConGravedad) :-
+    grilla_a_columnas(Grid, NumCols, Columnas),
+    maplist(gravedad_columna, Columnas, NuevasColumnas),
+    columnas_a_grilla(NuevasColumnas, GridConGravedad).
+
+llamar_efectos_adyacentes(Grilla2, PosicionResultante, NumCols, GridFin):-
+    nth0(IndexIzq, Grilla2, Block2),
+    nth0(IndexDer, Grilla2, Block3),
+    (
+    Block2 \= '-'
+    -> loop_efectos(Grilla2, IndexIzq, Block2, NumCols, GridInterm1)
+    ;  GridInterm1 = Grilla2
+    ),
+    (
+    Block3 \= '-'
+    -> loop_efectos(GridInterm1, IndexDer, Block3, NumCols, GridFin)
+    ;  GridFin = GridInterm1
+    ).
+
+    
+
+loop_efectos(Grid, _, '-', _, Grid).
 
 % loop_efectos(+GridActual, +Pos, +Valor, +NumCols, -GridFinal)
 loop_efectos(Grid, Pos, Block, NumCols, FinalGrid) :-
     efectos(Grid, Pos, Block, NumCols, Grid2, NuevaPos),
     (
-        not(Grid = Grid2)  % usamos =/2 (igualdad lógica) en lugar de ==
-    ->  nth0(NuevaPos, Grid2, NuevoValor),
-        loop_efectos(Grid2, NuevaPos, NuevoValor, NumCols, FinalGrid)
+        not(Grid = Grid2) % usamos =/2 (igualdad lógica) en lugar de ==
+    ->  (
+        aplicar_gravedad(Grid2, NumCols, GridGravedad),
+        nth0(NuevaPos, GridGravedad, NuevoValor),
+        loop_efectos(GridGravedad, NuevaPos, NuevoValor, NumCols, FinalGrid)
+        )
     ;   FinalGrid = Grid
     ).
 
+recorrer_grilla_efectos(Grilla, NumCols, Pos, Len, Resultado) :-
+    nth0(Pos, Grilla, Val),
+    ( number(Val) ->
+        loop_efectos(Grilla, Pos, Val, NumCols, GrillaIntermedia),
+        GrillaIntermedia \= Grilla  % hubo cambio
+    ->  recorrer_grilla_efectos(GrillaIntermedia, NumCols, 0, Len, Resultado)
+    ;   Pos1 is Pos + 1,
+        recorrer_grilla_efectos(Grilla, NumCols, Pos1, Len, Resultado)
+    ).
+
+% recorrer_grilla_efectos(+Grilla, +NumCols, +Pos, +Len, -Resultado)
+recorrer_grilla_efectos(Grilla, _, Pos, Len, Grilla) :-
+    Pos >= Len, !.  % no hubo más efectos
+
+% chequear_efectos_general(+Grilla, +NumCols, -GrillaFinal)
+% Recorre la grilla, aplicando efectos residuales hasta que no queden más
+chequear_efectos_general(Grilla, NumCols, GrillaFinal) :-
+    length(Grilla, Len),
+    recorrer_grilla_efectos(Grilla, NumCols, 0, Len, GrillaFinal).
+
 
 shoot(Block, Col, Grid, NumCols, [effect(GridFinal, [])]) :-
- ColIndex is Col - 1,
+    ColIndex is Col - 1,
     length(Grid, Len),
     NumFilas is Len // NumCols,
     buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, Pos),
-    reemplazarEnIndice(Grid, Pos, Block, NuevoGrid),
-    loop_efectos(NuevoGrid, Pos, Block, NumCols, GridFinal).
-
-
-
+    reemplazarEnIndice(Grid, Pos, Block, GridInsertado),
+    loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones),
+    aplicar_gravedad(GridFusiones, NumCols, GridConGravedad),
+    chequear_efectos_general(GridConGravedad, NumCols, ListaEfectos),
+    ( ListaEfectos = [effect(GridFinal, [])|_] -> true ; GridFinal = GridConGravedad ).
