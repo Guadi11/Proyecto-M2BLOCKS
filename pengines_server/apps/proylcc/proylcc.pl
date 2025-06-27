@@ -305,12 +305,31 @@ chequear_efectos_general(Grilla, NumCols, GrillaFinal, Iter) :-
     length(Grilla, Len),
     recorrer_grilla_efectos(Grilla, NumCols, 0, Len, GrillaFinal).*/
 
+generar_grilla_vacia(NumFilas, GridVacia) :-
+    NumCols = 5,  
+    Tam is NumCols * NumFilas,
+    length(GridVacia, Tam),
+    maplist(=('-'), GridVacia).
 
-shoot(Block, Col, Grid, NumCols, [effect(GridFinal, [])]) :-
-    ColIndex is Col - 1,
+/*% Se pierde si la fila superior está completamente llena (sin '-')*/
+perdiste(Grid, NumCols) :-
     length(Grid, Len),
     NumFilas is Len // NumCols,
-    buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, Pos),
-    reemplazarEnIndice(Grid, Pos, Block, GridInsertado),
-    loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones),
-    chequear_efectos_general(GridFusiones, NumCols, GridFinal).
+    NumColsLim is NumCols - 1,
+    forall(
+        between(0, NumColsLim, Col),
+        \+ buscarIndiceLibre(Grid, Col, NumCols, NumFilas, _)
+    ).
+
+shoot(Block, Col, Grid, NumCols, [effect(GridFinal, [])]) :-
+    ( perdiste(Grid, NumCols) ->
+        generar_grilla_vacia(6, GridFinal)
+    ;
+        ColIndex is Col - 1,
+        length(Grid, Len),
+        NumFilas is Len // NumCols,
+        buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, Pos),
+        reemplazarEnIndice(Grid, Pos, Block, GridInsertado),
+        loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones),
+        chequear_efectos_general(GridFusiones, NumCols, GridFinal)
+   ).    
