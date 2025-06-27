@@ -95,7 +95,9 @@ reemplazarEnIndice(Grid, Index, X, NuevoGrid) :-
     reemplazarEnIndiceAux(Grid, Index, X, NuevoGrid, 0).
 
 reemplazarEnIndiceAux([], _, _, [], _).
+
 reemplazarEnIndiceAux([_|T], Index, X, [X|T], Index).
+
 reemplazarEnIndiceAux([H|T], Index, X, [H|T2], N) :-
     N \= Index,
     N1 is N + 1,
@@ -111,14 +113,14 @@ calcular_nuevo_bloque(Suma, Nuevo) :-
 % filtrar_iguales(+Valor, +Lista[(Pos,Valor)], -SoloIguales)
 filtrar_iguales(_, [], []).
 
-filtrar_iguales(Valor, [(P,V)|T], [(P,V)|R]) :- %el primer elemento adyacente coincide con el bloque shooteado
+filtrar_iguales(Valor, [(P,V)|T], [(P,V)|R]) :- 
     V = Valor, !,
     filtrar_iguales(Valor, T, R).
 
 filtrar_iguales(Valor, [_|T], R) :-
     filtrar_iguales(Valor, T, R).
 
-aplicar_fusion(Grid, Pos, Block, [], _, _, Grid, _).
+aplicar_fusion(Grid, Pos, Block, [], _, 0, Grid, Pos).
 
 aplicar_fusion(Grid, Pos, Block, [(P1,_)], NumCols, ValorFusionado, NuevoGrid, NuevaPos) :-
     ValorFusionado is Block + Block,
@@ -156,14 +158,14 @@ aplicar_fusion(Grid, Pos, Block, [(P1,_),(P2,_),(P3,_)], NumCols, ValorFusionado
     reemplazarEnIndice(Grid, P1, '-', G1),
     reemplazarEnIndice(G1, P2, '-', G2),
     reemplazarEnIndice(G2, P3, '-', G3),
-    reemplazarEnIndice(G3, Pos, ValorFusionado, G3),
+    reemplazarEnIndice(G3, Pos, ValorFusionado, G4),
     Subida is Pos - NumCols,
     (   Subida >= 0,
         nth0(Subida, G3, '-')
-    ->  reemplazarEnIndice(G3, Pos, '-', G4),
-        reemplazarEnIndice(G4, Subida, ValorFusionado, NuevoGrid),
+    ->  reemplazarEnIndice(G4, Pos, '-', G5),
+        reemplazarEnIndice(G5, Subida, ValorFusionado, NuevoGrid),
         NuevaPos is Subida
-    ;   NuevoGrid = G3,
+    ;   NuevoGrid = G4,
        NuevaPos is Pos
     ).
 
@@ -188,11 +190,19 @@ adyacentes(Grid, Pos, NumCols, Adyacentes) :-
     ), Adyacentes).
 
 
-efectos(Grid, Pos, Block, NumCols, NuevoGridFinal, NuevaPos2) :-
+efectos(Grid, Pos, Block, NumCols, NuevoGridFinal, NuevaPos2, PuntosGanados) :-
     adyacentes(Grid, Pos, NumCols, Adyacentes),
     filtrar_iguales(Block, Adyacentes, Iguales),
-    aplicar_fusion(Grid, Pos, Block, Iguales, NumCols, ValorFusionado, GridFusionado, NuevaPos2),
-    NuevoGridFinal = GridFusionado.
+    (
+        Iguales \= [] ->
+            aplicar_fusion(Grid, Pos, Block, Iguales, NumCols, ValorFusionado, GridFusionado, NuevaPos2),
+            NuevoGridFinal = GridFusionado,
+            PuntosGanados is ValorFusionado
+    ;
+        NuevoGridFinal = Grid,
+        NuevaPos2 = Pos,
+        PuntosGanados = 0
+    ).
 
 % Transforma grilla en columnas
 grilla_a_columnas(Grid, NumCols, Columnas) :-
@@ -233,7 +243,7 @@ aplicar_gravedad(Grid, NumCols, GridConGravedad) :-
     maplist(gravedad_columna, Columnas, NuevasColumnas),
     columnas_a_grilla(NuevasColumnas, GridConGravedad).
 
-llamar_efectos_adyacentes(Grilla2, PosicionResultante, NumCols, GridFin):-
+/*llamar_efectos_adyacentes(Grilla2, PosicionResultante, NumCols, GridFin):-
     nth0(IndexIzq, Grilla2, Block2),
     nth0(IndexDer, Grilla2, Block3),
     (
@@ -245,59 +255,73 @@ llamar_efectos_adyacentes(Grilla2, PosicionResultante, NumCols, GridFin):-
     Block3 \= '-'
     -> loop_efectos(GridInterm1, IndexDer, Block3, NumCols, GridFin)
     ;  GridFin = GridInterm1
-    ).
-
-    
-
-loop_efectos(Grid, _, '-', _, Grid):-!.
+    ).*/
+   
 
 
-loop_efectos(Grid, Pos, Block, NumCols, FinalGrid) :-
-    efectos(Grid, Pos, Block, NumCols, Grid2, NuevaPos),
-    (
-        not(Grid = Grid2 )
-    ->  (
+loop_efectos(Grid, Pos, Block, NumCols, FinalGrid, PuntajeTotal) :-
+    efectos(Grid, Pos, Block, NumCols, Grid2, NuevaPos, PuntosFusion),
+        (Grid \= Grid2,
         aplicar_gravedad(Grid2, NumCols, GridGravedad),
         nth0(NuevaPos, GridGravedad, NuevoValor),
-        loop_efectos(GridGravedad, NuevaPos, NuevoValor, NumCols, FinalGrid)
-        )
-    ;   FinalGrid = Grid
+         (
+                number(NuevoValor) ->
+                    loop_efectos(GridGravedad, NuevaPos, NuevoValor, NumCols, FinalGrid, PuntosRecursivos),
+                    PuntajeTotal is PuntosFusion + PuntosRecursivos
+            ;
+                FinalGrid = GridGravedad,
+                PuntajeTotal is PuntosFusion
+            )
+    ;
+        FinalGrid = Grid,
+        PuntajeTotal = 0
     ).
 
-recorrer_grilla_efectos(Grilla, _, Pos, Len, Grilla) :-
+    loop_efectos(Grid, _, '-', _, Grid, 0):-!.
+
+recorrer_grilla_efectos(Grilla, _NumCols, Pos, Len, Grilla, 0) :-
     Pos >= Len, !.  
 
-recorrer_grilla_efectos(Grilla, NumCols, Pos, Len, Resultado) :-
+recorrer_grilla_efectos(Grilla, NumCols, Pos, Len, GrillaFinal, PuntajeTotal) :-
+    Pos < Len,
     nth0(Pos, Grilla, Val),
     ( number(Val) ->
-        loop_efectos(Grilla, Pos, Val, NumCols, GrillaIntermedia),
-        GrillaIntermedia \= Grilla  % hubo cambio
-    ->  recorrer_grilla_efectos(GrillaIntermedia, NumCols, 0, Len, Resultado)
-    ;   Pos1 is Pos + 1,
-        recorrer_grilla_efectos(Grilla, NumCols, Pos1, Len, Resultado)
+        loop_efectos(Grilla, Pos, Val, NumCols, GrillaIntermedia, PuntosBloque),
+        
+        (GrillaIntermedia \= Grilla ->
+        recorrer_grilla_efectos(GrillaIntermedia, NumCols, 0, Len, GrillaFinal, PuntosRestantes),
+        PuntajeTotal is PuntosBloque + PuntosRestantes
+    ;   
+        Pos1 is Pos + 1,
+        recorrer_grilla_efectos(Grilla, NumCols, Pos1, Len, GrillaFinal, PuntajeTotal)
+    )
+    ;
+        Pos1 is Pos + 1,
+        recorrer_grilla_efectos(Grilla, NumCols, Pos1, Len, GrillaFinal, PuntajeTotal)
     ).
 
 
-recorrer_grilla_efectos(Grilla, _, Pos, Len, Grilla) :-
-    Pos >= Len, !.  
+chequear_efectos_general(Grilla, NumCols, GrillaFinal, PuntajeTotal) :-
+    chequear_efectos_general(Grilla, NumCols, GrillaFinal, 20, PuntajeTotal).  % hasta 20 iteraciones
 
-chequear_efectos_general(Grid, _, Grid).
-
-chequear_efectos_general(Grid, _, Grid).
-
-chequear_efectos_general(Grilla, NumCols, GrillaFinal) :-
-    chequear_efectos_general(Grilla, NumCols, GrillaFinal, 20).  % hasta 20 iteraciones
-
-chequear_efectos_general(Grilla, _, Grilla, 0) :- !.  % caso base
-
-chequear_efectos_general(Grilla, NumCols, GrillaFinal, Iter) :-
-    length(Grilla, Len),
-    recorrer_grilla_efectos(Grilla, NumCols, 0, Len, GrillaIntermedia),
-    ( GrillaIntermedia \= Grilla ->
-        Iter1 is Iter - 1,
-        chequear_efectos_general(GrillaIntermedia, NumCols, GrillaFinal, Iter1)
-    ;   GrillaFinal = Grilla
+chequear_efectos_general(Grilla, NumCols, GrillaFinal, Iter, PuntajeTotal) :-
+    ( Iter =< 0 ->
+        GrillaFinal = Grilla,
+        PuntajeTotal = 0
+    ;
+        length(Grilla, Len),
+        recorrer_grilla_efectos(Grilla, NumCols, 0, Len, GrillaIntermedia, PuntosIteracion),
+    
+        ( GrillaIntermedia \= Grilla ->
+            Iter1 is Iter - 1,
+            chequear_efectos_general(GrillaIntermedia, NumCols, GrillaFinal, Iter1, PuntosRestantes),
+            PuntajeTotal is PuntosIteracion + PuntosRestantes
+    ;       GrillaFinal = Grilla,
+            PuntajeTotal = 0
+        )
     ).
+
+    chequear_efectos_general(Grilla, _, Grilla, 0, 0) :- !.  
 
 
 generar_grilla_vacia(NumFilas, GridVacia) :-
@@ -306,7 +330,7 @@ generar_grilla_vacia(NumFilas, GridVacia) :-
     length(GridVacia, Tam),
     maplist(=('-'), GridVacia).
 
-/*% Se pierde si la fila superior está completamente llena (sin '-')*/
+
 perdiste(Grid, NumCols) :-
     length(Grid, Len),
     NumFilas is Len // NumCols,
@@ -323,15 +347,18 @@ shoot(Block, Col, Grid, NumCols, [effect(GridFinal, Mensajes)]) :-
     NumFilas is Len // NumCols,
     buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, Pos),
     reemplazarEnIndice(Grid, Pos, Block, GridInsertado),
-    loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones),
-    chequear_efectos_general(GridFusiones, NumCols, GridDespues),
+    loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones, PuntosFusiones1),
+    chequear_efectos_general(GridFusiones, NumCols, GridDespues, PuntosFusiones2),
+    PuntajeTotal is PuntosFusiones1 + PuntosFusiones2,
     (
         perdiste(GridDespues, NumCols) ->
             generar_grilla_vacia(7, GridFinal),
             Mensajes = ['perdiste']
     ;
         GridFinal = GridDespues,
-        Mensajes = []
+        ( PuntajeTotal > 0 -> Mensajes = [newBlock(PuntajeTotal)]
+        ;   Mensajes = []
+        )
     ).
 
 
