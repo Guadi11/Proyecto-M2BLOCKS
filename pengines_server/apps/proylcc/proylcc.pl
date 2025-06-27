@@ -65,7 +65,6 @@ buscarDesdeFila(Grid, Col, NumCols, Fila, NumFilas, Indice) :-
     buscarDesdeFila(Grid, Col, NumCols, Fila1, NumFilas, Indice).
 
 
-
 /*
 % Busca desde la última fila hacia arriba el primer índice libre ('-')
 buscarIndiceLibre(Grid, Col, NumCols, NumFilas, Indice) :-
@@ -301,10 +300,6 @@ chequear_efectos_general(Grilla, NumCols, GrillaFinal, Iter) :-
     ).
 
 
-/*chequear_efectos_general(Grilla, NumCols, GrillaFinal) :-
-    length(Grilla, Len),
-    recorrer_grilla_efectos(Grilla, NumCols, 0, Len, GrillaFinal).*/
-
 generar_grilla_vacia(NumFilas, GridVacia) :-
     NumCols = 5,  
     Tam is NumCols * NumFilas,
@@ -321,15 +316,22 @@ perdiste(Grid, NumCols) :-
         \+ buscarIndiceLibre(Grid, Col, NumCols, NumFilas, _)
     ).
 
-shoot(Block, Col, Grid, NumCols, [effect(GridFinal, [])]) :-
-    ( perdiste(Grid, NumCols) ->
-        generar_grilla_vacia(6, GridFinal)
+
+shoot(Block, Col, Grid, NumCols, [effect(GridFinal, Mensajes)]) :-
+    ColIndex is Col - 1,
+    length(Grid, Len),
+    NumFilas is Len // NumCols,
+    buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, Pos),
+    reemplazarEnIndice(Grid, Pos, Block, GridInsertado),
+    loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones),
+    chequear_efectos_general(GridFusiones, NumCols, GridDespues),
+    (
+        perdiste(GridDespues, NumCols) ->
+            generar_grilla_vacia(7, GridFinal),
+            Mensajes = ['perdiste']
     ;
-        ColIndex is Col - 1,
-        length(Grid, Len),
-        NumFilas is Len // NumCols,
-        buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, Pos),
-        reemplazarEnIndice(Grid, Pos, Block, GridInsertado),
-        loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones),
-        chequear_efectos_general(GridFusiones, NumCols, GridFinal)
-   ).    
+        GridFinal = GridDespues,
+        Mensajes = []
+    ).
+
+

@@ -25,7 +25,8 @@ function Game() {
   const [score, setScore] = useState<number>(0);
   const [shootBlock, setShootBlock] = useState<number | null>(null);
   const [waiting, setWaiting] = useState<boolean>(false);
-
+  const [perdiste, setPerdiste] = useState(false);
+  const [mostrarCartelPerdiste, setMostrarCartelPerdiste] = useState(false);
   useEffect(() => {
     // This is executed just once, after the first render.
     connectToPenginesServer();
@@ -66,14 +67,21 @@ function Game() {
     const queryS = `shoot(${shootBlock}, ${lane}, ${gridS}, ${numOfColumns}, Effects), last(Effects, effect(RGrid,_)), randomBlock(RGrid, Block)`;
     setWaiting(true);
     const response = await pengine.query(queryS);    
-    if (response) {      
-      animateEffect(response['Effects']);
-      setShootBlock(response['Block']);
-    } else {
-      setWaiting(false);
+    if (response) {    
+      const newBlock = response['Block'];
+      animateEffect(response['Effects']);  
+      
+      if (newBlock === null || newBlock === undefined) {
+       setPerdiste(true);
+       setShootBlock(null);
+      } else {
+        setShootBlock(newBlock);
+      }
+
+      } else {
+       setWaiting(false);
+      }
     }
-  }
-  
   /**
    * Displays each grid of the sequence as the current grid in 1sec intervals, and considers the other effect information.
    * @param effects The list of effects to be animated.
@@ -81,22 +89,51 @@ function Game() {
   async function animateEffect(effects: EffectTerm[]) {
     const effect = effects[0];    
     const [effectGrid, effectInfo] = effect.args;
+
+  // 🟡 Si contiene el mensaje 'perdiste', lo detectamos
+  const contienePerdiste = effectInfo.some((item) => {
+    if (typeof item === 'string') {
+    return item === 'perdiste';
+  }
+  if (typeof item === 'object' && 'functor' in item) {
+    return item.functor === 'perdiste'; // por si viene con functor también
+  }
+  return false;
+});
+
+  if (contienePerdiste) {
+    setMostrarCartelPerdiste(true);
+  setGrid(effectGrid);
+  setShootBlock(null);
+  setWaiting(true);
+
+  setTimeout(() => {
+    setMostrarCartelPerdiste(false);
+    setScore(0);             //reinicio puntaje
+    initGame();              //reinicio el juego
+    setWaiting(false);
+  }, 3000);
+
+  }
+
+
+
+//si no perdi sigo
     setGrid(effectGrid);
+
     effectInfo.forEach((effectInfoItem) => {
       const { functor, args } = effectInfoItem;
-      switch (functor) {
-        case 'newBlock':
-          setScore(score => score + args[0]);
-          break;
-        default:
-          break;
+      if (functor === 'newBlock'){
+        setScore(score => score + args[0]);
       }
     });
+
     const restRGrids = effects.slice(1);
     if (restRGrids.length === 0) {
       setWaiting(false);
       return;
     }
+
     await delay(1000);
     animateEffect(restRGrids);
   }
@@ -105,9 +142,30 @@ function Game() {
     return null;
   }
   return (
+    <>
+    {mostrarCartelPerdiste && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        color: 'white',
+        fontSize: '2rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999
+      }}>
+        💥 ¡Perdiste! Reiniciando...
+      </div>
+    )}
+
     <div className="game">
       <div className="header">
         <div className="score">{score}</div>
+   
       </div>
       <Board
         grid={grid}
@@ -120,7 +178,7 @@ function Game() {
         </div>
       </div>
     </div>
-  );
-}
+  </>
+  );}
 
 export default Game;
