@@ -269,11 +269,11 @@ loop_efectos(Grid, Pos, Block, NumCols, FinalGrid, PuntajeTotal, Efectos1) :-
                 number(NuevoValor) ->
                     loop_efectos(GridGravedad, NuevaPos, NuevoValor, NumCols, FinalGrid, PuntosRecursivos, EfectosRec),
                     append(EfectosRec, [effect(FinalGrid, [])], E1),
-                    append(Efectos_Grav, E1, Efectos1),
+                    append(Efecto_Grav, E1, Efectos1),
                     PuntajeTotal is PuntosFusion + PuntosRecursivos
             ;
                 FinalGrid = GridGravedad,
-                Efectos1 = Efectos_Grav,
+                Efectos1 = Efecto_Grav,
                 PuntajeTotal is PuntosFusion
             )
     ;
