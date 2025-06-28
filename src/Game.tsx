@@ -25,16 +25,22 @@ function Game() {
   const [score, setScore] = useState<number>(0);
   const [shootBlock, setShootBlock] = useState<number | null>(null);
   const [waiting, setWaiting] = useState<boolean>(false);
+  //estados agregados para perder y objetivos
   const [perdiste, setPerdiste] = useState(false);
   const [mostrarCartelPerdiste, setMostrarCartelPerdiste] = useState(false);
+  const [objetivo, setObjetivo] = useState(512);
+  const [bloquesEliminados, setBloquesEliminados] = useState<number[]>([]);
+  const [mensajeObjetivo, setMensajeObjetivo] = useState<string | null>(null);
+  const [mostrarCartelInicial, setMostrarCartelInicial] = useState(true);
+  const [bloqueAgregado, setBloqueAgregado] = useState<number | null>(null);
+  const [mejorPuntaje, setMejorPuntaje] = useState<number>(0);
+  
   useEffect(() => {
-    // This is executed just once, after the first render.
     connectToPenginesServer();
   }, []);
 
   useEffect(() => {
     if (pengine) {
-      // This is executed after pengine was set.
       initGame();
     }
   }, [pengine]);
@@ -49,14 +55,19 @@ function Game() {
     setGrid(response['Grid']);
     setShootBlock(response['Block']);
     setNumOfColumns(response['NumOfColumns']);
+    //agregado:
+    setObjetivo(512);
+    setBloquesEliminados([]);
+    setScore(0);
+    setMostrarCartelInicial(true);
+    setTimeout(() => setMostrarCartelInicial(false), 3000);
   }
 
-  /**
-   * Called when the player clicks on a lane.
-   */
+  
+  //click del jugador
   async function handleLaneClick(lane: number) {
     // No effect if waiting.
-    if (waiting) {
+    if (waiting || !grid || shootBlock === null) {
       return;
     }
     /*
@@ -66,7 +77,8 @@ function Game() {
     const gridS = JSON.stringify(grid).replace(/"/g, '');
     const queryS = `shoot(${shootBlock}, ${lane}, ${gridS}, ${numOfColumns}, Effects), last(Effects, effect(RGrid,_)), randomBlock(RGrid, Block)`;
     setWaiting(true);
-    const response = await pengine.query(queryS);    
+    const response = await pengine.query(queryS);  
+
     if (response) {    
       const newBlock = response['Block'];
       animateEffect(response['Effects']);  
@@ -82,15 +94,14 @@ function Game() {
        setWaiting(false);
       }
     }
-  /**
-   * Displays each grid of the sequence as the current grid in 1sec intervals, and considers the other effect information.
-   * @param effects The list of effects to be animated.
-   */
+  
+
+
   async function animateEffect(effects: EffectTerm[]) {
     const effect = effects[0];    
     const [effectGrid, effectInfo] = effect.args;
 
-  // 🟡 Si contiene el mensaje 'perdiste', lo detectamos
+  //detecto si perdi
   const contienePerdiste = effectInfo.some((item) => {
     if (typeof item === 'string') {
     return item === 'perdiste';
@@ -102,7 +113,7 @@ function Game() {
 });
 
   if (contienePerdiste) {
-    setMostrarCartelPerdiste(true);
+  setMostrarCartelPerdiste(true);
   setGrid(effectGrid);
   setShootBlock(null);
   setWaiting(true);
@@ -113,7 +124,7 @@ function Game() {
     initGame();              //reinicio el juego
     setWaiting(false);
   }, 3000);
-
+    return;
   }
 
 
@@ -121,12 +132,44 @@ function Game() {
 //si no perdi sigo
     setGrid(effectGrid);
 
-    effectInfo.forEach((effectInfoItem) => {
-      const { functor, args } = effectInfoItem;
+    effectInfo.forEach((item : any) => {
+      const { functor, args } = item;
       if (functor === 'newBlock'){
-        setScore(score => score + args[0]);
+        setScore(prevscore => {//score + args[0], suma el puntaje recibido
+        const nuevoScore = prevscore + args[0];
+      if (nuevoScore > mejorPuntaje) {
+        setMejorPuntaje(nuevoScore);
       }
+      return nuevoScore;
     });
+  }
+});
+
+//si alcancé el objetivo
+    const maxBloque = Math.max(...(effectGrid.filter(x => typeof x === 'number') as number[]));
+    if(maxBloque >= objetivo){
+    const nuevoObjetivo = objetivo * 2;
+    const bloqueAEliminar = objetivo === 512 ? 2 : objetivo / 2;
+    const bloqueAgregadoValor = objetivo / 16;
+
+    setMensajeObjetivo(`🎉 ¡Objetivo ${objetivo} alcanzado! Próximo: ${nuevoObjetivo}. Bloque eliminado: ${bloqueAEliminar}`);
+  
+  // Mostrar cartel de objetivo durante 3s
+    setTimeout(() => {
+    setMensajeObjetivo(null);
+
+    // Luego del objetivo, mostramos el cartel de bloque agregado
+    setBloqueAgregado(bloqueAgregadoValor);
+    setTimeout(() => {
+      setBloqueAgregado(null);
+    }, 2500); // duración del cartel de bloque agregado
+
+  }, 3000); // duración del cartel de objetivo
+
+  // Actualizamos el estado del objetivo y los bloques eliminados
+  setObjetivo(nuevoObjetivo);
+  setBloquesEliminados(prev => [...prev, bloqueAEliminar]);
+}
 
     const restRGrids = effects.slice(1);
     if (restRGrids.length === 0) {
@@ -143,42 +186,93 @@ function Game() {
   }
   return (
     <>
-    {mostrarCartelPerdiste && (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        color: 'white',
-        fontSize: '2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999
-      }}>
-        💥 ¡Perdiste! Reiniciando...
+      {/*cartel de primer objetivo}*/}
+      {mostrarCartelInicial && (
+      <div style={cartelEstilo}>
+        🎯 Primer objetivo: 512
       </div>
-    )}
+      )}
+      {/*cartel perdiste*/}
+      {mostrarCartelPerdiste && (
+        <div style={cartelEstilo}>
+          💥 ¡Perdiste! Reiniciando...
+        </div>
+      )}
 
-    <div className="game">
-      <div className="header">
-        <div className="score">{score}</div>
-   
-      </div>
-      <Board
-        grid={grid}
-        numOfColumns={numOfColumns!}
-        onLaneClick={handleLaneClick}
-      />
-      <div className='footer'>
-        <div className='blockShoot'>
-          <Block value={shootBlock!} position={[0, 0]} />
+      {/*cartel de objetivo*/}
+      {mensajeObjetivo && (
+        <div style={cartelEstilo}>
+          {mensajeObjetivo}
+        </div>
+      )}
+
+      {bloqueAgregado !== null && (
+        <div style={cartelEstilo}>
+         🧱 Bloque agregado: {bloqueAgregado}
+        </div>
+      )}
+
+      <div className="game">
+        <div className="header" style={{
+          position: 'relative',
+          textAlign: 'center',
+          marginBottom: '1rem'
+        }}>
+          <div className="score" style={{ fontSize: '1.5rem', color: 'white' }}>{score}</div>
+        
+        <div style={{
+          //backgroundColor: 'white',
+          position: 'absolute',
+          right: '1rem',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          backgroundColor: 'white',
+          color: 'black',
+          padding: '0.3rem 0.8rem',
+          borderRadius: '10px',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          fontSize: '1rem',
+          gap: '0.4rem'
+         }}>
+           👑 {mejorPuntaje}
+         </div>
+        </div>
+
+        <Board
+          grid={grid}
+          numOfColumns={numOfColumns!}
+          onLaneClick={handleLaneClick}
+        />
+
+        <div className='footer'>
+          <div className='blockShoot'>
+            <Block value={shootBlock!} position={[0, 0]} />
+          </div>
         </div>
       </div>
-    </div>
-  </>
-  );}
+    </>
+  );
+}
+
+// Estilo reutilizado para ambos carteles
+const cartelEstilo: React.CSSProperties = {
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  width: '100vw',
+  height: '100vh',
+  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  color: 'white',
+  fontSize: '2rem',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 9999,
+  textAlign: 'center',
+  padding: '1rem',
+};
+
 
 export default Game;
