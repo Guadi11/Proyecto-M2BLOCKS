@@ -284,48 +284,60 @@ loop_efectos(Grid, Pos, Block, NumCols, FinalGrid, PuntajeTotal, Efectos1) :-
 
     loop_efectos(Grid, _, '-', _, Grid, 0, [effect(Grid, [])]):-!.
 
-recorrer_grilla_efectos(Grilla, _NumCols, Pos, Len, Grilla, 0) :-
+recorrer_grilla_efectos(Grilla, _NumCols, Pos, Len, Grilla, 0, []) :-
     Pos >= Len, !.  
 
-recorrer_grilla_efectos(Grilla, NumCols, Pos, Len, GrillaFinal, PuntajeTotal) :-
+recorrer_grilla_efectos(Grilla, NumCols, Pos, Len, GrillaFinal, PuntajeTotal, EfectosRecorrido) :-
     Pos < Len,
     nth0(Pos, Grilla, Val),
     ( number(Val) ->
         loop_efectos(Grilla, Pos, Val, NumCols, GrillaIntermedia, PuntosBloque, EfectosL),
-        (GrillaIntermedia \= Grilla ->
-        recorrer_grilla_efectos(GrillaIntermedia, NumCols, 0, Len, GrillaFinal, PuntosRestantes),
-        PuntajeTotal is PuntosBloque + PuntosRestantes
+        ( GrillaIntermedia \= Grilla ->
+        ( recorrer_grilla_efectos(GrillaIntermedia, NumCols, 0, Len, GrillaFinal, PuntosRestantes, EfectosRec1),
+        append(EfectosL, EfectosRec1, E2),
+        append(E2, [effect(GrillaFinal, [])], EfectosRecorrido),
+        PuntajeTotal is PuntosBloque + PuntosRestantes  
+        )
     ;   
-        Pos1 is Pos + 1,
-        recorrer_grilla_efectos(Grilla, NumCols, Pos1, Len, GrillaFinal, PuntajeTotal)
+        ( Pos1 is Pos + 1,
+        recorrer_grilla_efectos(Grilla, NumCols, Pos1, Len, GrillaFinal, PuntajeTotal, EfectosRec2),
+        append(EfectosL, EfectosRec2, E3),
+        append(E3, [effect(GrillaFinal, [])], EfectosRecorrido)
+        )
     )
     ;
+       (
         Pos1 is Pos + 1,
-        recorrer_grilla_efectos(Grilla, NumCols, Pos1, Len, GrillaFinal, PuntajeTotal)
+        recorrer_grilla_efectos(Grilla, NumCols, Pos1, Len, GrillaFinal, PuntajeTotal, EfectosRec3),
+        append(EfectosRec3, [effect(GrillaFinal, [])], EfectosRecorrido)
+        )
     ).
 
 
-chequear_efectos_general(Grilla, NumCols, GrillaFinal, PuntajeTotal) :-
-    chequear_efectos_general(Grilla, NumCols, GrillaFinal, 20, PuntajeTotal).  % hasta 20 iteraciones
+chequear_efectos_general(Grilla, NumCols, GrillaFinal, PuntajeTotal, EfectosChequeo) :-
+    chequear_efectos_general(Grilla, NumCols, GrillaFinal, 20, PuntajeTotal, EfectosChequeo).  % hasta 20 iteraciones
 
-chequear_efectos_general(Grilla, NumCols, GrillaFinal, Iter, PuntajeTotal) :-
+chequear_efectos_general(Grilla, NumCols, GrillaFinal, Iter, PuntajeTotal, EfectosChequeo) :-
     ( Iter =< 0 ->
         GrillaFinal = Grilla,
-        PuntajeTotal = 0
+        PuntajeTotal = 0,
+        EfectosChequeo = []
     ;
         length(Grilla, Len),
-        recorrer_grilla_efectos(Grilla, NumCols, 0, Len, GrillaIntermedia, PuntosIteracion),
+        recorrer_grilla_efectos(Grilla, NumCols, 0, Len, GrillaIntermedia, PuntosIteracion, EfectosChequeo1),
     
         ( GrillaIntermedia \= Grilla ->
             Iter1 is Iter - 1,
-            chequear_efectos_general(GrillaIntermedia, NumCols, GrillaFinal, Iter1, PuntosRestantes),
+            chequear_efectos_general(GrillaIntermedia, NumCols, GrillaFinal, Iter1, PuntosRestantes, EfectosC),
+            append(EfectosChequeo1, EfectosC, EfectosChequeo),
             PuntajeTotal is PuntosIteracion + PuntosRestantes
     ;       GrillaFinal = Grilla,
+            EfectosChequeo = [], 
             PuntajeTotal = 0
         )
     ).
 
-    chequear_efectos_general(Grilla, _, Grilla, 0, 0) :- !.  
+    chequear_efectos_general(Grilla, _, Grilla, 0, 0, []) :- !.  
 
 
 generar_grilla_vacia(NumFilas, GridVacia) :-
@@ -355,8 +367,7 @@ shoot(Block, Col, Grid, NumCols, EfectosFinales) :-
     Acc1 = [effect(GridInsertado, [])],
     loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones, PuntosFusiones1, EfectosLoop),
     /*maplist(agregar_info_vacio, EfectosLoop, EfectosLoopBien),*/
-    chequear_efectos_general(GridFusiones, NumCols, GridDespues, PuntosFusiones2),
-    /*maplist(agregar_info_vacio, EfectosExtra, EfectosExtraBien),*/
+    chequear_efectos_general(GridFusiones, NumCols, GridDespues, PuntosFusiones2, EfectosExtra),
     PuntajeTotal is PuntosFusiones1 + PuntosFusiones2,
     (
     perdiste(GridDespues, NumCols) ->
@@ -369,6 +380,6 @@ shoot(Block, Col, Grid, NumCols, EfectosFinales) :-
     )
 ),  
 Ultimo = effect(GridFinal, Mensajes),
-append([Acc1, EfectosLoop, [Ultimo]], EfectosFinales).
+append([Acc1, EfectosLoop, EfectosExtra, [Ultimo]], EfectosFinales).
 
 
