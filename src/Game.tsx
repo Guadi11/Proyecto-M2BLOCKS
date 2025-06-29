@@ -48,10 +48,9 @@ function Game() {
 };
 
 const bloqueAgregadoPorObjetivo: Record<number, number> = {
-  512: 32,
-  1024: 64,
-  2048: 128,
-  4096: 256,
+  1024: 128,
+  2048: 256,
+  4096: 512,
   8192: 512,
   16384: 1024,
   32768: 2048,
@@ -188,7 +187,7 @@ const bloqueAgregadoPorObjetivo: Record<number, number> = {
       if (nuevo > mejorPuntaje) setMejorPuntaje(nuevo);
       return nuevo;
     });
-  }
+}
 if (comboDetectado && comboDetectado >= 3) {
   setComboActual(comboDetectado);
   setPosicionCombo(posComboDetectada); // Usamos la posición recibida de Prolog
@@ -217,13 +216,15 @@ if (comboDetectado && comboDetectado >= 3) {
   setTimeout(() => {
     setMensajeObjetivo(null);
 
-    // Luego del objetivo, mostramos el cartel de bloque agregado
-    setBloqueAgregado(bloqueAgregadoValor);
-    setTimeout(() => {
-      setBloqueAgregado(null);
-    }, 2500);
+    if (objetivo>= 1024 && bloqueAgregadoValor !== null){
+      setBloqueAgregado(bloqueAgregadoValor);
+      setTimeout(() => {
+        setBloqueAgregado(null);
+      }, 2500);
+    }
   }, 3000);
 
+  setObjetivo(nuevoObjetivo);
   // Actualizamos estados
   setObjetivo(nuevoObjetivo);
   if (bloqueEliminado !== null) {
