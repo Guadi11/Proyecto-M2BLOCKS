@@ -34,7 +34,28 @@ function Game() {
   const [mostrarCartelInicial, setMostrarCartelInicial] = useState(true);
   const [bloqueAgregado, setBloqueAgregado] = useState<number | null>(null);
   const [mejorPuntaje, setMejorPuntaje] = useState<number>(0);
-  
+  const bloqueAEliminarPorObjetivo: Record<number, number | null> = {
+  512: null,
+  1024: null,
+  2048: 2,
+  4096: 4,
+  8192: 8,
+  16384: 16,
+  32768: 32,
+  65536: 64,
+};
+
+const bloqueAgregadoPorObjetivo: Record<number, number> = {
+  512: 32,
+  1024: 64,
+  2048: 128,
+  4096: 256,
+  8192: 512,
+  16384: 1024,
+  32768: 2048,
+  65536: 4096,
+};
+
   useEffect(() => {
     connectToPenginesServer();
   }, []);
@@ -75,6 +96,7 @@ function Game() {
     shoot(2, 2, [4,2,8,64,32,2,-,-,4,16,-,-,-,-,2,-,-,-,-,16,-,-,-,-,2,-,-,-,-,-,-,-,-,-,-], 5, Effects), last(Effects, effect(RGrid,_)), randomBlock(RGrid, Block).
     */
     const gridS = JSON.stringify(grid).replace(/"/g, '');
+    const eliminadosS = JSON.stringify(bloquesEliminados).replace(/"/g, '');
     const queryS = `shoot(${shootBlock}, ${lane}, ${gridS}, ${numOfColumns}, Effects), last(Effects, effect(RGrid,_)), randomBlock(RGrid, Block)`;
     setWaiting(true);
     const response = await pengine.query(queryS);  
@@ -98,8 +120,24 @@ function Game() {
 
 
   async function animateEffect(effects: EffectTerm[]) {
+    if (effects.length === 0) {
+    setWaiting(false);
+    return;
+  }
     const effect = effects[0];    
     const [effectGrid, effectInfo] = effect.args;
+    //primero actualizamos el grid
+    setGrid(effectGrid);
+    //elimino los bloques prohibidos si estan en la grilla
+    const nuevaGrilla = effectGrid.map((val) => {
+    if (typeof val === 'number' && bloquesEliminados.includes(val)) {
+      return '-'; // eliminamos ese bloque de la grilla
+    }
+    return val;
+    });
+    setGrid(nuevaGrilla);
+
+
 
   //detecto si perdi
   const contienePerdiste = effectInfo.some((item) => {
@@ -126,60 +164,68 @@ function Game() {
   }, 3000);
     return;
   }
+//calculamos y actualizamos el puntaje inmediatamente
+  let puntosNuevos = 0;
+  effectInfo.forEach((item: any) => {
+    const { functor, args } = item;
+    if (functor === 'newBlock') {
+      puntosNuevos += args[0];
+    }
+  });
 
-
-
-//si no perdi sigo
-    setGrid(effectGrid);
-
-    effectInfo.forEach((item : any) => {
-      const { functor, args } = item;
-      if (functor === 'newBlock'){
-        setScore(prevscore => {//score + args[0], suma el puntaje recibido
-        const nuevoScore = prevscore + args[0];
-      if (nuevoScore > mejorPuntaje) {
-        setMejorPuntaje(nuevoScore);
-      }
-      return nuevoScore;
+  if (puntosNuevos > 0) {
+    setScore(prev => {
+      const nuevo = prev + puntosNuevos;
+      if (nuevo > mejorPuntaje) setMejorPuntaje(nuevo);
+      return nuevo;
     });
   }
-});
 
-//si alcancé el objetivo
+  //chequeamos objetivo (también sin delay)
     const maxBloque = Math.max(...(effectGrid.filter(x => typeof x === 'number') as number[]));
-    if(maxBloque >= objetivo){
+    if (maxBloque >= objetivo) {
     const nuevoObjetivo = objetivo * 2;
-    const bloqueAEliminar = objetivo === 512 ? 2 : objetivo / 2;
-    const bloqueAgregadoValor = objetivo / 16;
-
-    setMensajeObjetivo(`🎉 ¡Objetivo ${objetivo} alcanzado! Próximo: ${nuevoObjetivo}. Bloque eliminado: ${bloqueAEliminar}`);
-  
+    const bloqueEliminado = bloqueAEliminarPorObjetivo[objetivo];
+    const bloqueAgregadoValor = bloqueAgregadoPorObjetivo[objetivo];
+    
+    if (bloqueEliminado !== null) {
+    const nuevaGrilla = effectGrid.map(val =>
+      val === bloqueEliminado ? '-' : val
+    );
+    setGrid(nuevaGrilla); // actualizamos la grilla sin esos bloques
+  }
   // Mostrar cartel de objetivo durante 3s
-    setTimeout(() => {
+  setMensajeObjetivo(`🎉 ¡Objetivo ${objetivo} alcanzado! Próximo: ${nuevoObjetivo}. ${bloqueEliminado !== null ? 'Bloque eliminado: ${bloqueEliminado}' : ''}`);
+
+  setTimeout(() => {
     setMensajeObjetivo(null);
 
     // Luego del objetivo, mostramos el cartel de bloque agregado
     setBloqueAgregado(bloqueAgregadoValor);
     setTimeout(() => {
       setBloqueAgregado(null);
-    }, 2500); // duración del cartel de bloque agregado
+    }, 2500);
+  }, 3000);
 
-  }, 3000); // duración del cartel de objetivo
-
-  // Actualizamos el estado del objetivo y los bloques eliminados
+  // Actualizamos estados
   setObjetivo(nuevoObjetivo);
-  setBloquesEliminados(prev => [...prev, bloqueAEliminar]);
+  if (bloqueEliminado !== null) {
+    setBloquesEliminados(prev => [...prev, bloqueEliminado]);
+  } 
 }
-
-    const restRGrids = effects.slice(1);
-    if (restRGrids.length === 0) {
-      setWaiting(false);
-      return;
-    }
-
-    await delay(1000);
-    animateEffect(restRGrids);
-  }
+const restRGrids = effects.slice(1);
+  // 5. Esperamos para la siguiente animación (solo visual)
+  //await delay(700); podés probar con 300 o 700 según el efecto
+  //await animateEffect(effects.slice(1));
+  if (restRGrids.length === 0) {
+  setWaiting(false);
+  return;
+}
+// Usar setTimeout en lugar de await
+setTimeout(() => {
+  animateEffect(restRGrids);
+}, 500);
+}
 
   if (grid === null) {
     return null;

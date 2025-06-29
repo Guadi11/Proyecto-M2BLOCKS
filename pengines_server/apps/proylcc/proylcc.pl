@@ -31,6 +31,7 @@ obtener_rango(64, [2,4,8,16,32]):-!.
 obtener_rango(128, [2,4,8,16,32,64]):-!.
 obtener_rango(256, [2,4,8,16,32,64]):-!.
 obtener_rango(512, [2,4,8,16,32,64]):-!.
+
 obtener_rango(_, [2,4]).  % caso por si la grilla esta vacia 
 
 
@@ -196,8 +197,8 @@ efectos(Grid, Pos, Block, NumCols, NuevoGridFinal, NuevaPos2, PuntosGanados) :-
     (
         Iguales \= [] ->
             aplicar_fusion(Grid, Pos, Block, Iguales, NumCols, ValorFusionado, GridFusionado, NuevaPos2),
-            NuevoGridFinal = GridFusionado,
-            PuntosGanados is ValorFusionado
+            PuntosGanados is ValorFusionado,
+            NuevoGridFinal = GridFusionado
     ;
         NuevoGridFinal = Grid,
         NuevaPos2 = Pos,
@@ -268,13 +269,15 @@ loop_efectos(Grid, Pos, Block, NumCols, FinalGrid, PuntajeTotal, Efectos1) :-
          (
                 number(NuevoValor) ->
                     loop_efectos(GridGravedad, NuevaPos, NuevoValor, NumCols, FinalGrid, PuntosRecursivos, EfectosRec),
+                    PuntajeTotal is PuntosFusion + PuntosRecursivos,
                     append(EfectosRec, [effect(FinalGrid, [])], E1),
-                    append(Efecto_Grav, E1, Efectos1),
-                    PuntajeTotal is PuntosFusion + PuntosRecursivos
+                    append(Efecto_Grav, E1, Efectos1)
+                    
             ;
                 FinalGrid = GridGravedad,
-                Efectos1 = Efecto_Grav,
-                PuntajeTotal is PuntosFusion
+                PuntajeTotal is PuntosFusion,
+                Efectos1 = Efecto_Grav
+                
             )
     ;
         FinalGrid = Grid,
@@ -294,9 +297,9 @@ recorrer_grilla_efectos(Grilla, NumCols, Pos, Len, GrillaFinal, PuntajeTotal, Ef
         loop_efectos(Grilla, Pos, Val, NumCols, GrillaIntermedia, PuntosBloque, EfectosL),
         ( GrillaIntermedia \= Grilla ->
         ( recorrer_grilla_efectos(GrillaIntermedia, NumCols, 0, Len, GrillaFinal, PuntosRestantes, EfectosRec1),
+        PuntajeTotal is PuntosBloque + PuntosRestantes,
         append(EfectosL, EfectosRec1, E2),
-        append(E2, [effect(GrillaFinal, [])], EfectosRecorrido),
-        PuntajeTotal is PuntosBloque + PuntosRestantes  
+        append(E2, [effect(GrillaFinal, [])], EfectosRecorrido)
         )
     ;   
         ( Pos1 is Pos + 1,
@@ -329,8 +332,9 @@ chequear_efectos_general(Grilla, NumCols, GrillaFinal, Iter, PuntajeTotal, Efect
         ( GrillaIntermedia \= Grilla ->
             Iter1 is Iter - 1,
             chequear_efectos_general(GrillaIntermedia, NumCols, GrillaFinal, Iter1, PuntosRestantes, EfectosC),
-            append(EfectosChequeo1, EfectosC, EfectosChequeo),
-            PuntajeTotal is PuntosIteracion + PuntosRestantes
+            PuntajeTotal is PuntosIteracion + PuntosRestantes,
+            append(EfectosChequeo1, EfectosC, EfectosChequeo)
+            
     ;       GrillaFinal = Grilla,
             EfectosChequeo = [], 
             PuntajeTotal = 0
@@ -356,7 +360,6 @@ perdiste(Grid, NumCols) :-
         \+ buscarIndiceLibre(Grid, Col, NumCols, NumFilas, _)
     ).
 
-agregar_info_vacio(effect(Grid), effect(Grid, [])).
 
 shoot(Block, Col, Grid, NumCols, EfectosFinales) :-
     ColIndex is Col - 1,
@@ -366,7 +369,6 @@ shoot(Block, Col, Grid, NumCols, EfectosFinales) :-
     reemplazarEnIndice(Grid, Pos, Block, GridInsertado),
     Acc1 = [effect(GridInsertado, [])],
     loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones, PuntosFusiones1, EfectosLoop),
-    /*maplist(agregar_info_vacio, EfectosLoop, EfectosLoopBien),*/
     chequear_efectos_general(GridFusiones, NumCols, GridDespues, PuntosFusiones2, EfectosExtra),
     PuntajeTotal is PuntosFusiones1 + PuntosFusiones2,
     (
