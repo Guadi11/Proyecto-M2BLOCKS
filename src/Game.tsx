@@ -34,8 +34,14 @@ function Game() {
   const [mostrarCartelInicial, setMostrarCartelInicial] = useState(true);
   const [bloqueAgregado, setBloqueAgregado] = useState<number | null>(null);
   const [mejorPuntaje, setMejorPuntaje] = useState<number>(0);
+  //Logica de combos
   const [comboActual, setComboActual] = useState<number | null>(null);
   const [posicionCombo, setPosicionCombo] = useState<number | null>(null);
+  //Lógica del siguiente bloque junto al booster
+  const [nextBlock, setNextBlock] = useState<number | null>(null);
+  const [isNextBlockVisible, setIsNextBlockVisible] = useState(false);
+  const [boosterTimerActive, setBoosterTimerActive] = useState(false);
+
   const bloqueAEliminarPorObjetivo: Record<number, number | null> = {
   512: null,
   1024: null,
@@ -72,16 +78,18 @@ const bloqueAgregadoPorObjetivo: Record<number, number> = {
   }
 
   async function initGame() {
-    const queryS = 'init(Grid, NumOfColumns), randomBlock(Grid, Block)';
+    const queryS = 'init(Grid, NumOfColumns), randomBlock(Grid, Block), randomBlock(Grid, NextBlock)';
     const response = await pengine!.query(queryS);
     setGrid(response['Grid']);
     setShootBlock(response['Block']);
+    setNextBlock(response['NextBlock']);
     setNumOfColumns(response['NumOfColumns']);
     //agregado:
     setObjetivo(512);
     setBloquesEliminados([]);
     setScore(0);
     setMostrarCartelInicial(true);
+    setIsNextBlockVisible(false);
     setTimeout(() => setMostrarCartelInicial(false), 3000);
   }
 
@@ -104,21 +112,35 @@ const bloqueAgregadoPorObjetivo: Record<number, number> = {
 
     if (response) {    
       const newBlock = response['Block'];
+      setShootBlock(nextBlock);
       animateEffect(response['Effects']);  
       
       if (newBlock === null || newBlock === undefined) {
        setPerdiste(true);
        setShootBlock(null);
+       setNextBlock(null);
       } else {
-        setShootBlock(newBlock);
+        setNextBlock(newBlock);
       }
-
       } else {
        setWaiting(false);
       }
+      
     }
   
+  // --- Función para activar el booster ---
+    function activateBooster() {
+        if (boosterTimerActive) return; // No hacer nada si ya está activo
 
+        setBoosterTimerActive(true);
+        setIsNextBlockVisible(true);
+
+        // Iniciar temporizador de 5 segundos para ocultar el bloque de nuevo
+        setTimeout(() => {
+            setIsNextBlockVisible(false);
+            setBoosterTimerActive(false);
+        }, 5000);
+    }
 
   async function animateEffect(effects: EffectTerm[]) {
     if (effects.length === 0) {
@@ -336,11 +358,44 @@ setTimeout(() => {
       </div>
 
       {/* Footer con el bloque que se va a disparar */}
-      <div className="footer">
-        <div className="blockShoot">
-          <Block value={shootBlock!} position={[0, 0]} />
-        </div>
-      </div>
+<div className="footer" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '2rem', marginTop: '1rem' }}>
+  <div className="blockShoot">
+    <Block value={shootBlock!} position={[0, 0]} />
+  </div>
+
+  {/* Área del Booster y Siguiente Bloque */}
+  <div className="boosterArea" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div className="nextBlockWrapper" style={{ position: 'relative', width: '60px', height: '60px', marginBottom: '0.5rem' }}>
+      {isNextBlockVisible && nextBlock !== null ? (
+        <Block value={nextBlock} position={[0, 0]} />
+      ) : (
+        <button
+      onClick={activateBooster}
+      disabled={boosterTimerActive}
+      className="boosterButton"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        color: 'white',
+        fontSize: '1.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: '8px'
+      }}
+    >
+      {boosterTimerActive ? '' : '?'}
+    </button>
+      )}
+    </div>
+  </div>
+</div>
+
+      
     </div>
   </>
 );
