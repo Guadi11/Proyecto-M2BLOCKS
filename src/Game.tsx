@@ -34,6 +34,8 @@ function Game() {
   const [mostrarCartelInicial, setMostrarCartelInicial] = useState(true);
   const [bloqueAgregado, setBloqueAgregado] = useState<number | null>(null);
   const [mejorPuntaje, setMejorPuntaje] = useState<number>(0);
+  const [comboActual, setComboActual] = useState<number | null>(null);
+  const [posicionCombo, setPosicionCombo] = useState<number | null>(null);
   const bloqueAEliminarPorObjetivo: Record<number, number | null> = {
   512: null,
   1024: null,
@@ -126,6 +128,7 @@ const bloqueAgregadoPorObjetivo: Record<number, number> = {
   }
     const effect = effects[0];    
     const [effectGrid, effectInfo] = effect.args;
+    console.log("effectInfo recibido:", effectInfo);
     //primero actualizamos el grid
     setGrid(effectGrid);
     //elimino los bloques prohibidos si estan en la grilla
@@ -166,10 +169,16 @@ const bloqueAgregadoPorObjetivo: Record<number, number> = {
   }
 //calculamos y actualizamos el puntaje inmediatamente
   let puntosNuevos = 0;
+  let comboDetectado: number | null = null;
+  let posComboDetectada: number | null = null;
   effectInfo.forEach((item: any) => {
     const { functor, args } = item;
     if (functor === 'newBlock') {
       puntosNuevos += args[0];
+    }
+    if (functor === 'combo') {
+    comboDetectado = args[0];
+    posComboDetectada = args[1]; // La posición está en args[1]
     }
   });
 
@@ -180,7 +189,15 @@ const bloqueAgregadoPorObjetivo: Record<number, number> = {
       return nuevo;
     });
   }
+if (comboDetectado && comboDetectado >= 3) {
+  setComboActual(comboDetectado);
+  setPosicionCombo(posComboDetectada); // Usamos la posición recibida de Prolog
 
+  setTimeout(() => {
+    setComboActual(null);
+    setPosicionCombo(null);
+  }, 2000);
+}
   //chequeamos objetivo (también sin delay)
     const maxBloque = Math.max(...(effectGrid.filter(x => typeof x === 'number') as number[]));
     if (maxBloque >= objetivo) {
@@ -231,43 +248,44 @@ setTimeout(() => {
     return null;
   }
   return (
-    <>
-      {/*cartel de primer objetivo}*/}
-      {mostrarCartelInicial && (
+  <>
+    {/* Cartel de primer objetivo */}
+    {mostrarCartelInicial && (
       <div style={cartelEstilo}>
         🎯 Primer objetivo: 512
       </div>
-      )}
-      {/*cartel perdiste*/}
-      {mostrarCartelPerdiste && (
-        <div style={cartelEstilo}>
-          💥 ¡Perdiste! Reiniciando...
-        </div>
-      )}
+    )}
 
-      {/*cartel de objetivo*/}
-      {mensajeObjetivo && (
-        <div style={cartelEstilo}>
-          {mensajeObjetivo}
-        </div>
-      )}
+    {/* Cartel perdiste */}
+    {mostrarCartelPerdiste && (
+      <div style={cartelEstilo}>
+        💥 ¡Perdiste! Reiniciando...
+      </div>
+    )}
 
-      {bloqueAgregado !== null && (
-        <div style={cartelEstilo}>
-         🧱 Bloque agregado: {bloqueAgregado}
-        </div>
-      )}
+    {/* Cartel de objetivo */}
+    {mensajeObjetivo && (
+      <div style={cartelEstilo}>
+        {mensajeObjetivo}
+      </div>
+    )}
 
-      <div className="game">
-        <div className="header" style={{
-          position: 'relative',
-          textAlign: 'center',
-          marginBottom: '1rem'
-        }}>
-          <div className="score" style={{ fontSize: '1.5rem', color: 'white' }}>{score}</div>
-        
+    {/* Cartel de bloque agregado */}
+    {bloqueAgregado !== null && (
+      <div style={cartelEstilo}>
+        🧱 Bloque agregado: {bloqueAgregado}
+      </div>
+    )}
+
+    <div className="game">
+      <div className="header" style={{
+        position: 'relative',
+        textAlign: 'center',
+        marginBottom: '1rem'
+      }}>
+        <div className="score" style={{ fontSize: '1.5rem', color: 'white' }}>{score}</div>
+
         <div style={{
-          //backgroundColor: 'white',
           position: 'absolute',
           right: '1rem',
           top: '50%',
@@ -281,25 +299,50 @@ setTimeout(() => {
           alignItems: 'center',
           fontSize: '1rem',
           gap: '0.4rem'
-         }}>
-           👑 {mejorPuntaje}
-         </div>
+        }}>
+          👑 {mejorPuntaje}
         </div>
+      </div>
 
+      {/* Contenedor del tablero con combo */}
+      <div style={{ position: 'relative', width: 'fit-content', margin: '0 auto' }}>
         <Board
           grid={grid}
           numOfColumns={numOfColumns!}
           onLaneClick={handleLaneClick}
         />
 
-        <div className='footer'>
-          <div className='blockShoot'>
-            <Block value={shootBlock!} position={[0, 0]} />
+        {comboActual && posicionCombo !== null && (
+          <div
+            style={{
+              position: 'absolute',
+              top: `${Math.floor(posicionCombo / numOfColumns!) * 80}px`,
+              left: `${(posicionCombo % numOfColumns!) * 80}px`,
+              transform: 'translate(10%, -100%)',
+              backgroundColor: 'transparent',
+              color: 'white',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              fontSize: '1.2rem',
+              pointerEvents: 'none',
+              zIndex: 999
+            }}
+          >
+             Combo x {comboActual}
           </div>
+        )}
+      </div>
+
+      {/* Footer con el bloque que se va a disparar */}
+      <div className="footer">
+        <div className="blockShoot">
+          <Block value={shootBlock!} position={[0, 0]} />
         </div>
       </div>
-    </>
-  );
+    </div>
+  </>
+);
 }
 
 // Estilo reutilizado para ambos carteles

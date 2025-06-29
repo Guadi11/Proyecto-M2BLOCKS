@@ -3,7 +3,7 @@
 		randomBlock/2,
 		shoot/5	
 	]).
-
+:- dynamic combo/2.
 :- use_module(library(clpfd)).  % incluye transpose/2
 
 
@@ -21,25 +21,59 @@ randomBlock(Grid, Block) :-
     ;   max_list(Numeros, Max)
     ).
 
-    % parte de bloques randomBlock
-obtener_rango(2, [2,4]):-!.
-obtener_rango(4, [2,4]):-!.
-obtener_rango(8, [2,4]):-!.
-obtener_rango(16, [2,4,8]):-!.
-obtener_rango(32, [2,4,8,16]):-!.
-obtener_rango(64, [2,4,8,16,32]):-!.
-obtener_rango(128, [2,4,8,16,32,64]):-!.
-obtener_rango(256, [2,4,8,16,32,64]):-!.
-obtener_rango(512, [2,4,8,16,32,64]):-!.
 
-obtener_rango(_, [2,4]).  % caso por si la grilla esta vacia 
+% Casos base para valores de Max hasta 512 
+obtener_rango(Max, [2,4]) :- Max =< 8, !.
+obtener_rango(16, [2,4,8]) :- !.
+obtener_rango(32, [2,4,8,16]) :- !.
+obtener_rango(64, [2,4,8,16,32]) :- !.
+obtener_rango(Max, [2,4,8,16,32,64]) :- Max >= 128, Max =< 512, !.
 
+% Caso general recursivo para Max >= 1024
+obtener_rango(Max, Rango) :-
+    Max >= 1024, !,
+    %    Empezamos desde el primer caso conocido: Max_Umbral=1024, Min_Rango=4, Max_Rango=128.
+    calcular_limites_rango(Max, 1024, 4, 128, MinFinal, MaxRangoFinal),
+    
+    % 2. Generamos la lista de potencias de 2 con los límites calculados.
+    generar_potencias(MinFinal, MaxRangoFinal, Rango).
 
-/*
- * shoot(+Block, +Column, +Grid, +NumOfColumns, -Effects) 
- * RGrids es la lista de grillas representando el efecto, en etapas, de combinar las celdas del camino Path
- * en la grilla Grid, con número de columnas NumOfColumns. El número 0 representa que la celda está vacía. 
+% Caso por defecto si la grilla está vacía
+obtener_rango(_, [2,4]).
+
+/**
+ * calcular_limites_rango(+MaxGrilla, +MaxUmbral, +MinActual, +MaxActual, -MinFinal, -MaxRangoFinal)
+ *
+ * Calcula recursivamente los límites del rango. Si MaxGrilla es mayor que el doble
+ * del umbral actual, se llama a sí mismo con todos los valores duplicados.
  */
+% Caso base: El Max de la grilla ya no supera el siguiente umbral. Los límites actuales son los correctos.
+calcular_limites_rango(MaxGrilla, MaxUmbral, MinActual, MaxActual, MinActual, MaxActual) :-
+    MaxGrilla < MaxUmbral * 2, !.
+
+% Paso recursivo: El Max de la grilla es muy grande, probamos con el siguiente nivel de rangos.
+calcular_limites_rango(MaxGrilla, MaxUmbral, MinActual, MaxActual, MinFinal, MaxRangoFinal) :-
+    NuevoUmbral is MaxUmbral * 2,
+    NuevoMin is MinActual * 2,
+    NuevoMax is MaxActual * 2,
+    calcular_limites_rango(MaxGrilla, NuevoUmbral, NuevoMin, NuevoMax, MinFinal, MaxRangoFinal).
+
+
+/**
+ * generar_potencias(+Desde, +Hasta, -Lista)
+ *
+ * Genera una lista de potencias de 2, comenzando en 'Desde' y terminando
+ * cuando se supera 'Hasta'.
+ */
+% Caso base: El número actual ('Desde') ya es mayor que el límite. Terminamos con una lista vacía.
+generar_potencias(Desde, Hasta, []) :-
+    Desde > Hasta, !.
+
+% Paso recursivo: Añade el número actual a la lista y llama con el doble de su valor.
+generar_potencias(Desde, Hasta, [Desde | Resto]) :-
+    Siguiente is Desde * 2,
+    generar_potencias(Siguiente, Hasta, Resto).
+
 
 % filaColumnaPosicion(+Fila, +Col, +NumCol, -Pos)
 filaColumnaPosicion(Fila, Col, NumCol, Pos) :-
@@ -259,33 +293,36 @@ aplicar_gravedad(Grid, NumCols, GridConGravedad) :-
     ).*/
    
 
-
-loop_efectos(Grid, Pos, Block, NumCols, FinalGrid, PuntajeTotal, Efectos1) :-
+loop_efectos(Grid, Pos, Block, NumCols, FinalGrid, PuntajeTotal, ComboCount, ComboPos, Efectos1) :-
     efectos(Grid, Pos, Block, NumCols, Grid2, NuevaPos, PuntosFusion),
-        (Grid \= Grid2,
+    (   Grid \= Grid2 -> % Hubo una fusión
         aplicar_gravedad(Grid2, NumCols, GridGravedad),
         Efecto_Grav = [effect(GridGravedad, [])],
         nth0(NuevaPos, GridGravedad, NuevoValor),
-         (
-                number(NuevoValor) ->
-                    loop_efectos(GridGravedad, NuevaPos, NuevoValor, NumCols, FinalGrid, PuntosRecursivos, EfectosRec),
-                    PuntajeTotal is PuntosFusion + PuntosRecursivos,
-                    append(EfectosRec, [effect(FinalGrid, [])], E1),
-                    append(Efecto_Grav, E1, Efectos1)
-                    
-            ;
-                FinalGrid = GridGravedad,
-                PuntajeTotal is PuntosFusion,
-                Efectos1 = Efecto_Grav
-                
-            )
-    ;
+        (   number(NuevoValor) ->
+            % Llamada recursiva: contamos el siguiente eslabón del combo
+            loop_efectos(GridGravedad, NuevaPos, NuevoValor, NumCols, FinalGrid, PuntosRecursivos, ComboRecursivo, PosRecursiva, EfectosRec),
+            PuntajeTotal is PuntosFusion + PuntosRecursivos,
+            ComboCount is 1 + ComboRecursivo, % Sumamos 1 al combo
+            ComboPos = PosRecursiva, % La posición final es la de la última fusión en la cadena
+            append(EfectosRec, [effect(FinalGrid, [])], E1),
+            append(Efecto_Grav, E1, Efectos1)
+        ;   % Esta fue la última fusión de la cadena
+            FinalGrid = GridGravedad,
+            PuntajeTotal is PuntosFusion,
+            ComboCount = 1, % El combo es de 1
+            ComboPos = NuevaPos, % La posición es donde cayó el nuevo bloque
+            Efectos1 = Efecto_Grav
+        )
+    ;   % No hubo fusión
         FinalGrid = Grid,
         Efectos1 = [effect(FinalGrid, [])],
-        PuntajeTotal = 0
+        PuntajeTotal = 0,
+        ComboCount = 0, % No hay combo
+        ComboPos = Pos
     ).
 
-    loop_efectos(Grid, _, '-', _, Grid, 0, [effect(Grid, [])]):-!.
+loop_efectos(Grid, _, '-', _, Grid, 0, 0, _, [effect(Grid, [])]):-!.
 
 recorrer_grilla_efectos(Grilla, _NumCols, Pos, Len, Grilla, 0, []) :-
     Pos >= Len, !.  
@@ -294,7 +331,7 @@ recorrer_grilla_efectos(Grilla, NumCols, Pos, Len, GrillaFinal, PuntajeTotal, Ef
     Pos < Len,
     nth0(Pos, Grilla, Val),
     ( number(Val) ->
-        loop_efectos(Grilla, Pos, Val, NumCols, GrillaIntermedia, PuntosBloque, EfectosL),
+        loop_efectos(Grilla, Pos, Val, NumCols, GrillaIntermedia, PuntosBloque, ContadorComb, PosiCombo, EfectosL),
         ( GrillaIntermedia \= Grilla ->
         ( recorrer_grilla_efectos(GrillaIntermedia, NumCols, 0, Len, GrillaFinal, PuntosRestantes, EfectosRec1),
         PuntajeTotal is PuntosBloque + PuntosRestantes,
@@ -368,20 +405,25 @@ shoot(Block, Col, Grid, NumCols, EfectosFinales) :-
     buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, Pos),
     reemplazarEnIndice(Grid, Pos, Block, GridInsertado),
     Acc1 = [effect(GridInsertado, [])],
-    loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones, PuntosFusiones1, EfectosLoop),
+
+    loop_efectos(GridInsertado, Pos, Block, NumCols, GridFusiones, PuntosFusiones1, ComboCount, UltimaPosFusion, EfectosLoop),
+
     chequear_efectos_general(GridFusiones, NumCols, GridDespues, PuntosFusiones2, EfectosExtra),
+    
     PuntajeTotal is PuntosFusiones1 + PuntosFusiones2,
     (
-    perdiste(GridDespues, NumCols) ->
-        generar_grilla_vacia(7, GridFinal),
-        Mensajes = ['perdiste']
-;
-    (
-        GridFinal = GridDespues,
-        ( PuntajeTotal > 0 -> Mensajes = [newBlock(PuntajeTotal)] ; Mensajes = [] )
-    )
-),  
-Ultimo = effect(GridFinal, Mensajes),
-append([Acc1, EfectosLoop, EfectosExtra, [Ultimo]], EfectosFinales).
+        perdiste(GridDespues, NumCols) ->
+            generar_grilla_vacia(7, GridFinal),
+            Mensajes = ['perdiste']
+        ;
+            GridFinal = GridDespues,
+            ( PuntajeTotal > 0 -> Mensajes = [newBlock(PuntajeTotal)] ; Mensajes = [] )
+    ),
 
+    ( ComboCount >= 2 -> Combo = [combo(ComboCount, UltimaPosFusion)] ; Combo = [] ),
 
+    append(Mensajes, Combo, MensajesFinal),
+    Ultimo = effect(GridFinal, MensajesFinal),
+    % Limpiamos la lista de efectos para evitar duplicados vacíos.
+    flatten([Acc1, EfectosLoop, EfectosExtra, [Ultimo]], EfectosFinalesTemp),
+    include(\=(effect([],_)), EfectosFinalesTemp, EfectosFinales).
