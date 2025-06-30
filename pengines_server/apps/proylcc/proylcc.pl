@@ -307,7 +307,8 @@ loop_efectos(Grid, Pos, Block, NumCols, FinalGrid, PuntajeTotal, ComboCount, Com
             PuntajeTotal is PuntosFusion + PuntosRecursivos,
             ComboCount is 1 + ComboRecursivo, % Sumamos 1 al combo
             ComboPos = PosRecursiva, % La posición final es la de la última fusión en la cadena
-            append(EfectosRec, [effect(FinalGrid, [])], E1),
+            ( PuntosRecursivos > 0 -> MensajesExtra = [newBlock(PuntosRecursivos)] ; MensajesExtra = [] ),
+            append(EfectosRec, [effect(FinalGrid, MensajesExtra)], E1),
             append(Efecto_Grav, E1, Efectos1)
         ;   % Esta fue la última fusión de la cadena
             FinalGrid = GridGravedad,
