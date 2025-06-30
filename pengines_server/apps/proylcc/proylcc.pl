@@ -453,14 +453,15 @@ simulate_shoot(Block, Col, Grid, NumCols, Result) :-
         
         % Ejecuta la misma lógica de efectos en cadena para obtener el resultado.
         % Los guiones bajos (_) indican que no nos interesan esos valores de salida aquí.
-        loop_efectos(GridInsertado, Pos, Block, NumCols, _GridFinal, PuntosFusion, ComboCount, _, _Efectos),
+        loop_efectos(GridInsertado, Pos, Block, NumCols, GridFinal, PuntosFusion, ComboCount, ComboPos, _Efectos),
 
         % Determina el resultado más relevante para mostrar como pista.
         (   ComboCount >= 3 ->
             Result = combo(ComboCount)         % El resultado principal es un combo.
         ;   PuntosFusion > 0 ->
-            Result = block(Block)      % El resultado es un nuevo bloque.
-        ;
+            nth0(ComboPos, GridFinal, ValorMax),
+            Result = block(ValorMax)      % El resultado es un nuevo bloque.
+        ;   
             Result = none                      % No pasó nada interesante.
         )
     ).
