@@ -417,12 +417,13 @@ replace_all(Old, New, [H|T], [H|T2]) :-
  * Elimina todas las instancias de un bloque de la grilla y luego
  * aplica la gravedad para reacomodar los bloques restantes.
  */
-cleanup_grid(Grid, BlockToEliminate, NumCols, CleanedGrid) :-
+cleanup_grid(Grid, BlockToEliminate, NumCols, GridDesp) :-
     % 1. Reemplaza el bloque a eliminar por celdas vacías ('-')
     replace_all(BlockToEliminate, '-', Grid, GridWithHoles),
     
     % 2. Aplica la lógica de gravedad existente a la nueva grilla con huecos
-    aplicar_gravedad(GridWithHoles, NumCols, CleanedGrid).
+    aplicar_gravedad(GridWithHoles, NumCols, CleanedGrid),
+    chequear_efectos_general(CleanedGrid, NumCols, GridDesp, 10, _, _).
 
 shoot(Block, Col, Grid, NumCols, EfectosFinales) :-
     ColIndex is Col - 1,
