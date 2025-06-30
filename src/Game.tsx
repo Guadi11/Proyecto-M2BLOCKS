@@ -358,7 +358,11 @@ if (grid === null) {
         🧱 Bloque agregado: {bloqueAgregado}
       </div>
     )}
-
+{activeNotifications.length > 0 && (
+  <div style={notificacionEstilo}>
+    {activeNotifications[0]}
+  </div>
+)}
     <div className="game">
       <div className="header" style={{
         position: 'relative',
@@ -527,6 +531,21 @@ const cartelEstilo: React.CSSProperties = {
   zIndex: 9999,
   textAlign: 'center',
   padding: '1rem',
+};
+const notificacionEstilo: React.CSSProperties = {
+  position: 'fixed',
+  top: '1rem',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  backgroundColor: '#222',
+  color: 'white',
+  padding: '1rem 2rem',
+  borderRadius: '10px',
+  fontSize: '1.5rem',
+  zIndex: 9999,
+  boxShadow: '0 4px 10px rgba(0, 0, 0, 0.5)',
+  maxWidth: '80vw',
+  textAlign: 'center'
 };
 
 
