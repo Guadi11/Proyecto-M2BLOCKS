@@ -2,7 +2,8 @@
 	[  
 		randomBlock/2,
 		shoot/5,
-        simulate_shoot/5  % Predicado exportado para el booster de pistas
+        simulate_shoot/5,  % Predicado exportado para el booster de pistas
+        cleanup_grid/4
 	]).
 :- dynamic combo/2.
 :- use_module(library(clpfd)).  % incluye transpose/2
@@ -397,7 +398,30 @@ perdiste(Grid, NumCols) :-
         between(0, NumColsLim, Col),
         \+ buscarIndiceLibre(Grid, Col, NumCols, NumFilas, _)
     ).
+/**
+ * replace_all(?Old, ?New, +ListIn, -ListOut)
+ *
+ * Reemplaza todas las ocurrencias de 'Old' por 'New' en una lista.
+ */
+replace_all(_, _, [], []).
+replace_all(Old, New, [Old|T], [New|T2]) :- !, 
+    replace_all(Old, New, T, T2).
+replace_all(Old, New, [H|T], [H|T2]) :- 
+    H \= Old, 
+    replace_all(Old, New, T, T2).
 
+/**
+ * cleanup_grid(+Grid, +BlockToEliminate, +NumCols, -CleanedGrid)
+ *
+ * Elimina todas las instancias de un bloque de la grilla y luego
+ * aplica la gravedad para reacomodar los bloques restantes.
+ */
+cleanup_grid(Grid, BlockToEliminate, NumCols, CleanedGrid) :-
+    % 1. Reemplaza el bloque a eliminar por celdas vacías ('-')
+    replace_all(BlockToEliminate, '-', Grid, GridWithHoles),
+    
+    % 2. Aplica la lógica de gravedad existente a la nueva grilla con huecos
+    aplicar_gravedad(GridWithHoles, NumCols, CleanedGrid).
 
 shoot(Block, Col, Grid, NumCols, EfectosFinales) :-
     ColIndex is Col - 1,

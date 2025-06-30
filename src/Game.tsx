@@ -140,7 +140,9 @@ useEffect(() => {
     if (response) {    
       const newBlock = response['Block'];
       setShootBlock(nextBlock);
-      animateEffect(response['Effects']);  
+      const finalGrid = await animateEffect(response.Effects);
+      await checkForNewMaxBlock(finalGrid);
+
       
       if (newBlock === null || newBlock === undefined) {
        setPerdiste(true);
@@ -213,65 +215,87 @@ try {
     }, 3000);
     }
 }
+// --- LÓGICA DE OBJETIVOS Y LIMPIEZA ---
+async function checkForNewMaxBlock(finalGrid: Grid) {
+ if (!finalGrid || !pengine || numOfColumns === null) return;
+        
+const maxBloque = Math.max(0, ...(finalGrid.filter(x => typeof x === 'number') as number[]));
 
-  async function animateEffect(effects: EffectTerm[]) {
-    if (effects.length === 0) {
-    setWaiting(false);
-    return;
+if (maxBloque >= objetivo) {
+  const notificationsToShow: string[] = [];
+  let gridParaLimpiar = finalGrid;
+  notificationsToShow.push(`🏆 ¡Nuevo bloque máximo: ${objetivo}!`);
+  const bloqueAgregado = bloqueAgregadoPorObjetivo[objetivo];
+  if (bloqueAgregado) {
+     notificationsToShow.push(`Bloque agregado: ${bloqueAgregado}`);
   }
-    const effect = effects[0];    
-    const [effectGrid, effectInfo] = effect.args;
-    console.log("effectInfo recibido:", effectInfo);
-    //primero actualizamos el grid
-    //setGrid(effectGrid);
-    //elimino los bloques prohibidos si estan en la grilla
-    const nuevaGrilla = effectGrid.map((val) => {
-    if (typeof val === 'number' && bloquesEliminados.includes(val)) {
-      return '-'; // eliminamos ese bloque de la grilla
+  const bloqueEliminado = bloqueAEliminarPorObjetivo[objetivo];
+  if (bloqueEliminado !== null && bloqueEliminado !== undefined) {
+      notificationsToShow.push(`❌ Bloque retirado: ${bloqueEliminado}`);
+      // --- LLAMADA A PROLOG PARA LIMPIAR Y APLICAR GRAVEDAD ---
+      const gridS = JSON.stringify(gridParaLimpiar).replace(/"/g, '');
+      const queryS = `cleanup_grid(${gridS}, ${bloqueEliminado}, ${numOfColumns}, CleanedGrid)`;
+      const cleanupResponse = await pengine.query(queryS);      
+      if (cleanupResponse && cleanupResponse.CleanedGrid) {
+        // Muestra la grilla limpia con una pequeña animación/delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+        setGrid(cleanupResponse.CleanedGrid);
+        gridParaLimpiar = cleanupResponse.CleanedGrid; // Actualiza para el siguiente paso
+      }         
+      setBloquesEliminados(prev => [...prev, bloqueEliminado]);
+      }     
+      const nuevoObjetivo = objetivo * 2;
+      setObjetivo(nuevoObjetivo);
+      setActiveNotifications(prev => [...prev, ...notificationsToShow]);
     }
-    return val;
-    });
-    setGrid(nuevaGrilla);
-//VER SUBIDA BLOQUES
+  }
+  async function animateEffect(effects: EffectTerm[]): Promise<Grid> {
+  if (effects.length === 0) {
+    setWaiting(false);
+    return grid!;
+  }
 
+  const effect = effects[0];
+  const [effectGrid, effectInfo] = effect.args;
+  console.log("effectInfo recibido:", effectInfo);
 
-  //detecto si perdi
   const contienePerdiste = effectInfo.some((item) => {
-    if (typeof item === 'string') {
-    return item === 'perdiste';
-  }
-  if (typeof item === 'object' && 'functor' in item) {
-    return item.functor === 'perdiste'; // por si viene con functor también
-  }
-  return false;
-});
+    if (typeof item === 'string') return item === 'perdiste';
+    if (typeof item === 'object' && 'functor' in item) return item.functor === 'perdiste';
+    return false;
+  });
 
   if (contienePerdiste) {
-  setMostrarCartelPerdiste(true);
-  setGrid(effectGrid);
-  setShootBlock(null);
-  setWaiting(true);
-
-  setTimeout(() => {
-    setMostrarCartelPerdiste(false);
-    setScore(0);             //reinicio puntaje
-    initGame();              //reinicio el juego
-    setWaiting(false);
-  }, 3000);
-    return;
+    setMostrarCartelPerdiste(true);
+    setGrid(effectGrid);
+    setShootBlock(null);
+    setWaiting(true);
+    setTimeout(() => {
+      setMostrarCartelPerdiste(false);
+      setScore(0);
+      initGame();
+      setWaiting(false);
+    }, 3000);
+    return effectGrid;
   }
-//calculamos y actualizamos el puntaje inmediatamente
+
+  // ✅ APLICAR GRID EN CADA PASO CON DELAY PARA VISUALIZAR
+  setGrid(effectGrid);
+  await delay(300); // <- tiempo entre cada grilla intermedia (ajustalo si querés más/menos lento)
+
+  // Acumular puntaje, combos, etc. (esto puede ir antes o después del delay)
   let puntosNuevos = 0;
   let comboDetectado: number | null = null;
   let posComboDetectada: number | null = null;
+
   effectInfo.forEach((item: any) => {
     const { functor, args } = item;
     if (functor === 'newBlock') {
       puntosNuevos += args[0];
     }
     if (functor === 'combo') {
-    comboDetectado = args[0];
-    posComboDetectada = args[1]; // La posición está en args[1]
+      comboDetectado = args[0];
+      posComboDetectada = args[1];
     }
   });
 
@@ -281,66 +305,28 @@ try {
       if (nuevo > mejorPuntaje) setMejorPuntaje(nuevo);
       return nuevo;
     });
-}
-if (comboDetectado && comboDetectado >= 3) {
-  setComboActual(comboDetectado);
-  setPosicionCombo(posComboDetectada); // Usamos la posición recibida de Prolog
-
-  setTimeout(() => {
-    setComboActual(null);
-    setPosicionCombo(null);
-  }, 2000);
-}
-  //chequeamos objetivo (también sin delay)
-    const maxBloque = Math.max(...(effectGrid.filter(x => typeof x === 'number') as number[]));
-    if (maxBloque >= objetivo) {
-    const nuevoObjetivo = objetivo * 2;
-    const bloqueEliminado = bloqueAEliminarPorObjetivo[objetivo];
-    const bloqueAgregadoValor = bloqueAgregadoPorObjetivo[objetivo];
-    
-    if (bloqueEliminado !== null) {
-    const nuevaGrilla = effectGrid.map(val =>
-      val === bloqueEliminado ? '-' : val
-    );
-    setGrid(nuevaGrilla); // actualizamos la grilla sin esos bloques
   }
-  // Mostrar cartel de objetivo durante 3s
-  setMensajeObjetivo(`🎉 ¡Objetivo ${objetivo} alcanzado! Próximo: ${nuevoObjetivo}. ${bloqueEliminado !== null ? `Bloque eliminado: ${bloqueEliminado}` : ''}`);
 
+  if (comboDetectado && comboDetectado >= 3) {
+    setComboActual(comboDetectado);
+    setPosicionCombo(posComboDetectada);
+    setTimeout(() => {
+      setComboActual(null);
+      setPosicionCombo(null);
+    }, 2000);
+  }
 
-  setTimeout(() => {
-    setMensajeObjetivo(null);
+  const restRGrids = effects.slice(1);
 
-    if (objetivo>= 1024 && bloqueAgregadoValor !== null){
-      setBloqueAgregado(bloqueAgregadoValor);
-      setTimeout(() => {
-        setBloqueAgregado(null);
-      }, 2500);
-    }
-  }, 3000);
-
-  setObjetivo(nuevoObjetivo);
-  // Actualizamos estados
-  setObjetivo(nuevoObjetivo);
-  if (bloqueEliminado !== null) {
-    setBloquesEliminados(prev => [...prev, bloqueEliminado]);
-  } 
-}
-const restRGrids = effects.slice(1);
-  // 5. Esperamos para la siguiente animación (solo visual)
-  //await delay(700); podés probar con 300 o 700 según el efecto
-  //await animateEffect(effects.slice(1));
   if (restRGrids.length === 0) {
-  setWaiting(false);
-  return;
-}
-// Usar setTimeout en lugar de await
-setTimeout(() => {
-  animateEffect(restRGrids);
-}, 500);
+    setWaiting(false);
+    return effectGrid;
+  }
+
+  return animateEffect(restRGrids);
 }
 
-  if (grid === null) {
+if (grid === null) {
     return null;
   }
   return (
