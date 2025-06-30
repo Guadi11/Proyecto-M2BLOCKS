@@ -41,12 +41,12 @@ function Game() {
   const [nextBlock, setNextBlock] = useState<number | null>(null);
   const [isNextBlockVisible, setIsNextBlockVisible] = useState(false);
   const [boosterTimerActive, setBoosterTimerActive] = useState(false);
-
+  const [activeNotifications, setActiveNotifications] = useState<string[]>([]);
   const bloqueAEliminarPorObjetivo: Record<number, number | null> = {
   512: null,
-  1024: null,
-  2048: 2,
-  4096: 4,
+  1024: 2,
+  2048: 4,
+  4096: 8,
   8192: 8,
   16384: 16,
   32768: 32,
@@ -72,6 +72,15 @@ const bloqueAgregadoPorObjetivo: Record<number, number> = {
       initGame();
     }
   }, [pengine]);
+useEffect(() => {
+        if (activeNotifications.length > 0) {
+            const timer = setTimeout(() => {
+                // Muestra la siguiente notificación eliminando la actual de la cola
+                setActiveNotifications(prev => prev.slice(1));
+            }, 2500); // Duración de cada mensaje
+            return () => clearTimeout(timer);
+        }
+    }, [activeNotifications]);
 
   async function connectToPenginesServer() {
     setPengine(await PengineClient.create()); // Await until the server is initialized
@@ -151,7 +160,7 @@ const bloqueAgregadoPorObjetivo: Record<number, number> = {
     const [effectGrid, effectInfo] = effect.args;
     console.log("effectInfo recibido:", effectInfo);
     //primero actualizamos el grid
-    setGrid(effectGrid);
+    //setGrid(effectGrid);
     //elimino los bloques prohibidos si estan en la grilla
     const nuevaGrilla = effectGrid.map((val) => {
     if (typeof val === 'number' && bloquesEliminados.includes(val)) {
@@ -160,7 +169,7 @@ const bloqueAgregadoPorObjetivo: Record<number, number> = {
     return val;
     });
     setGrid(nuevaGrilla);
-
+//VER SUBIDA BLOQUES
 
 
   //detecto si perdi
@@ -233,7 +242,8 @@ if (comboDetectado && comboDetectado >= 3) {
     setGrid(nuevaGrilla); // actualizamos la grilla sin esos bloques
   }
   // Mostrar cartel de objetivo durante 3s
-  setMensajeObjetivo(`🎉 ¡Objetivo ${objetivo} alcanzado! Próximo: ${nuevoObjetivo}. ${bloqueEliminado !== null ? 'Bloque eliminado: ${bloqueEliminado}' : ''}`);
+  setMensajeObjetivo(`🎉 ¡Objetivo ${objetivo} alcanzado! Próximo: ${nuevoObjetivo}. ${bloqueEliminado !== null ? `Bloque eliminado: ${bloqueEliminado}` : ''}`);
+
 
   setTimeout(() => {
     setMensajeObjetivo(null);
