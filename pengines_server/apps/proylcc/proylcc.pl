@@ -358,7 +358,7 @@ recorrer_grilla_efectos(Grilla, NumCols, Pos, Len, GrillaFinal, PuntajeTotal, Ef
 
 
 chequear_efectos_general(Grilla, NumCols, GrillaFinal, PuntajeTotal, EfectosChequeo) :-
-    chequear_efectos_general(Grilla, NumCols, GrillaFinal, 20, PuntajeTotal, EfectosChequeo).  % hasta 20 iteraciones
+    chequear_efectos_general(Grilla, NumCols, GrillaFinal, 8, PuntajeTotal, EfectosChequeo).  % hasta 8 iteraciones
 
 chequear_efectos_general(Grilla, NumCols, GrillaFinal, Iter, PuntajeTotal, EfectosChequeo) :-
     ( Iter =< 0 ->
