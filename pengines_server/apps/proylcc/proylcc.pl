@@ -1,7 +1,8 @@
 :- module(proylcc, 
 	[  
 		randomBlock/2,
-		shoot/5	
+		shoot/5,
+        simulate_shoot/5  % Predicado exportado para el booster de pistas
 	]).
 :- dynamic combo/2.
 :- use_module(library(clpfd)).  % incluye transpose/2
@@ -420,10 +421,46 @@ shoot(Block, Col, Grid, NumCols, EfectosFinales) :-
             ( PuntajeTotal > 0 -> Mensajes = [newBlock(PuntajeTotal)] ; Mensajes = [] )
     ),
 
-    ( ComboCount >= 2 -> Combo = [combo(ComboCount, UltimaPosFusion)] ; Combo = [] ),
+    ( ComboCount >= 3 -> Combo = [combo(ComboCount, UltimaPosFusion)] ; Combo = [] ),
 
     append(Mensajes, Combo, MensajesFinal),
     Ultimo = effect(GridFinal, MensajesFinal),
     % Limpiamos la lista de efectos para evitar duplicados vacíos.
     flatten([Acc1, EfectosLoop, EfectosExtra, [Ultimo]], EfectosFinalesTemp),
     include(\=(effect([],_)), EfectosFinalesTemp, EfectosFinales).
+
+% simulate_shoot(+Block, +Column, +Grid, +NumCols, -Result)
+%
+% Simula un disparo en una columna y devuelve el resultado principal sin
+% alterar el estado del juego ni generar una lista completa de efectos.
+% El resultado puede ser:
+% - combo(N): Si se produjo un combo de N fusiones.
+% - block(Value): Si se creó un nuevo bloque de valor Value.
+% - none: Si no ocurrió ninguna fusión o evento notable.
+
+simulate_shoot(Block, Col, Grid, NumCols, Result) :-
+    ColIndex is Col - 1,
+    length(Grid, Len),
+    NumFilas is Len // NumCols,
+    
+    % Primero, verifica si la columna está llena. Si no se encuentra un índice libre, la jugada no es posible.
+    (   \+ buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, _) ->
+        Result = none
+    ;
+        % Si la columna no está llena, procede con la simulación.
+        buscarIndiceLibre(Grid, ColIndex, NumCols, NumFilas, Pos),
+        reemplazarEnIndice(Grid, Pos, Block, GridInsertado),
+        
+        % Ejecuta la misma lógica de efectos en cadena para obtener el resultado.
+        % Los guiones bajos (_) indican que no nos interesan esos valores de salida aquí.
+        loop_efectos(GridInsertado, Pos, Block, NumCols, _GridFinal, PuntosFusion, ComboCount, _, _Efectos),
+
+        % Determina el resultado más relevante para mostrar como pista.
+        (   ComboCount >= 3 ->
+            Result = combo(ComboCount)         % El resultado principal es un combo.
+        ;   PuntosFusion > 0 ->
+            Result = block(Block)      % El resultado es un nuevo bloque.
+        ;
+            Result = none                      % No pasó nada interesante.
+        )
+    ).

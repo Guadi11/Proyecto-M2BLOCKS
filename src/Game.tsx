@@ -42,6 +42,9 @@ function Game() {
   const [isNextBlockVisible, setIsNextBlockVisible] = useState(false);
   const [boosterTimerActive, setBoosterTimerActive] = useState(false);
   const [activeNotifications, setActiveNotifications] = useState<string[]>([]);
+  //Logica para booster Hint
+  const [hints, setHints] = useState<{ col: number, text: string }[]>([]);
+  const [isHintActive, setIsHintActive] = useState(false);
   const bloqueAEliminarPorObjetivo: Record<number, number | null> = {
   512: null,
   1024: 2,
@@ -61,6 +64,20 @@ const bloqueAgregadoPorObjetivo: Record<number, number> = {
   16384: 1024,
   32768: 2048,
   65536: 4096,
+};
+
+// --- Tipo para las pistas ---
+type Hint = {
+    col: number;
+    text: string;
+};
+
+// --- Tipo para la respuesta de simulación de Prolog ---
+type SimulationResponse = {
+    Result?: {
+        functor: string;
+        args: any[];
+    }
 };
 
   useEffect(() => {
@@ -106,9 +123,10 @@ useEffect(() => {
   //click del jugador
   async function handleLaneClick(lane: number) {
     // No effect if waiting.
-    if (waiting || !grid || shootBlock === null) {
+    if (waiting || !grid || shootBlock === null || isHintActive) {
       return;
     }
+    setWaiting(true);
     /*
     Build Prolog query, which will be something like:
     shoot(2, 2, [4,2,8,64,32,2,-,-,4,16,-,-,-,-,2,-,-,-,-,16,-,-,-,-,2,-,-,-,-,-,-,-,-,-,-], 5, Effects), last(Effects, effect(RGrid,_)), randomBlock(RGrid, Block).
@@ -137,19 +155,64 @@ useEffect(() => {
       
     }
   
-  // --- Función para activar el booster ---
-    function activateBooster() {
-        if (boosterTimerActive) return; // No hacer nada si ya está activo
-
+  // --- Función para activar el boosterNextBlock ---
+    function activateNextBlockBooster() {
+        if (boosterTimerActive) return;
         setBoosterTimerActive(true);
         setIsNextBlockVisible(true);
-
-        // Iniciar temporizador de 5 segundos para ocultar el bloque de nuevo
         setTimeout(() => {
             setIsNextBlockVisible(false);
             setBoosterTimerActive(false);
-        }, 5000);
+        }, 10000);
     }
+
+    // --- Función para activar el boosterHint ---
+async function activateHintBooster() {
+// 1: Guarda para evitar que se ejecute si los datos no están listos.
+if (waiting || isHintActive || !pengine || !grid || shootBlock === null || numOfColumns === null) {
+  return;
+}
+
+setWaiting(true);
+setIsHintActive(true);
+
+const gridS = JSON.stringify(grid).replace(/"/g, '');
+const simulationPromises = [];
+
+for (let col = 1; col <= numOfColumns; col++) {
+  const queryS = `simulate_shoot(${shootBlock}, ${col}, ${gridS}, ${numOfColumns}, Result)`;
+  //2: Tipado explícito para la respuesta de la promesa.
+  const promise = pengine.query(queryS).then((response: SimulationResponse) => ({ col, response }));
+  simulationPromises.push(promise);
+}
+
+try {
+  const results = await Promise.all(simulationPromises);
+  // Se usa .reduce para construir el array con el tipo correcto, evitando `null`.
+  const collectedHints = results.reduce<Hint[]>((acc, { col, response }) => {
+  if (response && response.Result) {
+    const { functor, args } = response.Result;
+    let text = '';
+    if (functor === 'combo') text = `x${args[0]}`;
+    else if (functor === 'block') text = `${args[0]}`;
+    if (text) {
+      acc.push({ col, text });
+    }
+  }
+  return acc;
+  }, []);
+ setHints(collectedHints);
+
+} catch (error) {
+  console.error("Error durante simulación de pistas:", error);
+  } finally {
+    setWaiting(false);
+    setTimeout(() => {
+      setHints([]);
+      setIsHintActive(false);
+    }, 3000);
+    }
+}
 
   async function animateEffect(effects: EffectTerm[]) {
     if (effects.length === 0) {
@@ -365,28 +428,44 @@ setTimeout(() => {
              Combo x {comboActual}
           </div>
         )}
+        {/* Muestra las pistas del booster */}
+        {hints.map(hint => (
+        <div key={`hint-${hint.col}`} style={{position: 'absolute',  
+        top: `${Math.floor(numOfColumns!) * 100}px`, 
+        left: `${((hint.col - 1) * (70 + 10)) + 10}px`, 
+        bottom: '10px',
+        transform: 'translate(10%, -100%)',
+        backgroundColor: 'transparent',
+        color: 'white',
+        padding: '4px 10px',
+        borderRadius: '8px',
+        fontWeight: 'bold',
+        fontSize: '1.2rem',
+        pointerEvents: 'none',
+        zIndex: 999
+      }}>
+          {hint.text}
+        </div>
+        ))}
       </div>
 
-      {/* Footer con el bloque que se va a disparar */}
-<div className="footer" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '2rem', marginTop: '1rem' }}>
-  <div className="blockShoot">
-    <Block value={shootBlock!} position={[0, 0]} />
-  </div>
-
-  {/* Área del Booster y Siguiente Bloque */}
-  <div className="boosterArea" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-    <div className="nextBlockWrapper" style={{ position: 'relative', width: '60px', height: '60px', marginBottom: '0.5rem' }}>
-      {isNextBlockVisible && nextBlock !== null ? (
-        <Block value={nextBlock} position={[0, 0]} />
-      ) : (
-        <button
-      onClick={activateBooster}
-      disabled={boosterTimerActive}
-      className="boosterButton"
+      <div
+  className="footer"
+  style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: '1rem',
+    gap: '2rem'
+  }}
+>
+  {/* Botón de Pista 💡 */}
+  <div style={{ width: '60px', height: '60px', position: 'relative', flexShrink: 0 }}>
+    <button
+      onClick={activateHintBooster}
+      disabled={isHintActive || waiting}
+      className="boosterHintButton"
       style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
         width: '100%',
         height: '100%',
         backgroundColor: 'rgba(0,0,0,0.8)',
@@ -395,18 +474,53 @@ setTimeout(() => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: '8px'
+        borderRadius: '8px',
+        cursor: 'pointer',
+        border: '2px dashed white',
+        zIndex: 1
       }}
     >
-      {boosterTimerActive ? '' : '?'}
+      💡
     </button>
-      )}
-    </div>
+  </div>
+
+  {/* Bloque a disparar */}
+  <div className="blockShoot" style={{ width: '60px', height: '60px', flexShrink: 0 }}>
+    <Block value={shootBlock!} position={[0, 0]} />
+  </div>
+
+  {/* Siguiente bloque ❓ */}
+  <div className="boosterArea" style={{ width: '40px', height: '40px', position: 'relative', flexShrink: 0 }}>
+    <div className="blockShoot" style={{ width: '40px', height: '40px', flexShrink: 0 }}>
+    {isNextBlockVisible && nextBlock !== null ? (
+      <Block value={nextBlock} position={[0, 0]} />
+    ) : (
+      <button
+        onClick={activateNextBlockBooster}
+        disabled={boosterTimerActive}
+        className="boosterButton"
+        style={{
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          fontSize: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          border: '2px dashed white',
+          zIndex: 0 
+        }}
+      >
+        {boosterTimerActive ? '' : '?'}
+      </button>
+    )}
+   </div> 
   </div>
 </div>
-
-      
-    </div>
+</div>
   </>
 );
 }
