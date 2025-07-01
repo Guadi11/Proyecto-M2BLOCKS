@@ -488,6 +488,6 @@ simulate_shoot(Block, Col, Grid, NumCols, Result) :-
             nth0(ComboPos, GridFinal, ValorMax),
             Result = block(ValorMax)      % El resultado es un nuevo bloque.
         ;   
-            Result = none                      % No pasó nada interesante.
+            Result = block(0)                      % No pasó nada interesante.
         )
     ).

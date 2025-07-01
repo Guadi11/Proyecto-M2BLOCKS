@@ -279,9 +279,9 @@ if (maxBloque >= objetivo) {
     return effectGrid;
   }
 
-  // ✅ APLICAR GRID EN CADA PASO CON DELAY PARA VISUALIZAR
+  // APLICAR GRID EN CADA PASO CON DELAY PARA VISUALIZAR
   setGrid(effectGrid);
-  await delay(300); // <- tiempo entre cada grilla intermedia (ajustalo si querés más/menos lento)
+  await delay(150); // <- tiempo entre cada grilla intermedia 
 
   // Acumular puntaje, combos, etc. (esto puede ir antes o después del delay)
   let puntosNuevos = 0;
