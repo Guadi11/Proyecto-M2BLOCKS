@@ -23,7 +23,7 @@ Para esa actualización utilizamos una lógica escalonada: primero se consideran
 # **Inserción de Bloques**
 
 Cuando se inserta un bloque en la grilla, este se “dispara” a una columna específica. El nuevo bloque cae hasta la primera celda libre disponible en esa columna, simulando la gravedad invertida. La forma de encontrar la posición del bloque en la columna seleccionada es buscando el primer lugar vacío de la misma, desde arriba hacia abajo. Si la columna está llena, la jugada se considera inválida y no se realiza ningún cambio.  
-![Muestra Insercion](docs\images\image1.jpg)
+
 
 # **Fusión de Bloques**
 
@@ -34,7 +34,7 @@ Una vez que un bloque cae en su posición final, se verifica si puede fusionarse
  * Con dos bloques, se cuadruplica.
 
  * Con tres bloques, se multiplica por ocho.
-![Fusion1](docs\images\image2.jpg)              ![Fusion2](docs\images\image3.jpg)
+
 Estas fusiones eliminan los bloques involucrados y colocan el resultado en la posición donde cayó el bloque original. Si hay espacio arriba, el nuevo bloque “sube” una fila, manteniendo la idea visual de una reacción en cadena.
 
 # **Reacciones en Cadena y Combos**
@@ -42,27 +42,22 @@ Estas fusiones eliminan los bloques involucrados y colocan el resultado en la po
 Tras una fusión, se aplica nuevamente la gravedad para que los bloques restantes caigan a ocupar los espacios libres cuando sea necesario. Esto puede provocar nuevas fusiones, generando así efectos en cadena. Esta dinámica está implementada de forma recursiva: cada vez que ocurre una fusión, se verifica si el nuevo bloque generado puede a su vez fusionarse con sus nuevos adyacentes. Cada fusión dentro de una misma jugada incrementa un contador de “combo”, que otorga bonificaciones visuales al mostrar la cantidad de bloques fusionados.  
 	
 
-![Grilla Antes de Cadena](docs\images\image4.png)             ![Grilla Despues Cadena](docs\images\image5.png)
-
 # **Aplicación de Gravedad**
 
 La gravedad en el juego se simula reordenando los elementos en cada columna. Los bloques válidos (con valor) suben hasta ocupar todas las primeras posiciones, y las posiciones donde no hay bloques “bajan” dejando espacio libre para disparar de nuevo.
 
-![Antes Gravedad](docs\images\image6.png)  ![Merge](docs\images\image7.png) ![Gravedad y Merge](docs\images\image8.png)
+
 
 # **Mecanismo de Fin de Juego**
 
 El juego detecta su finalización cuando ya no se puede insertar ningún bloque en ninguna de las columnas. Esto se determina revisando si cada columna tiene al menos una celda vacía disponible. Si todas están llenas, el sistema genera una grilla vacía y marca que el jugador ha perdido, reiniciando el puntaje a 0 y, en el caso de que el puntaje obtenido en esa partida sea el primero o el mejor de todos, se guardará como mejor puntaje y se mostrará en pantalla hasta que sea superado.
-
-![cartel Perdiste](docs\images\image9.png)    ![Reinicio](docs\images\image10.png)
-
 
 
 # **Simulación de Jugadas (Booster de Pistas)**
 
 Para ofrecer ayuda al jugador sin afectar el estado del juego, se puede utiliza una simulación de una jugada completa sobre una copia de la grilla (todo esto sin que lo vea el jugador). A partir de esta simulación, el sistema informa si dicha jugada generaría una fusión relevante o un combo, permitiendo así sugerencias inteligentes. Además, a la derecha del bloque a disparar se encuentra la posibilidad de visualizar cual va a ser el próximo bloque a disparar, lo que también beneficia al jugador en la planificación de su jugada.
 
-![Booster Pistas Activado](docs\images\image11.png)
+
 
 # **REACT – PARTE VISUAL/FUNCIONAL**	
 
@@ -130,9 +125,7 @@ Este sistema no solo mejora la comprensión de lo que ocurre, sino que refuerza 
 El jugador puede activar un booster para visualizar el siguiente bloque durante 10 segundos. Luego de ese tiempo, el bloque vuelve a ocultarse con un signo de interrogación (?).
 
 Esto se controla mediante un estado temporizado en React, sin afectar la lógica de Prolog.
-![Booster Bloque Desactivado] (docs\images\image12.png)
 
-![Booster Bloque Activado] (docs\images\image13.png)
 
 # Booster: Pistas (Hint)
 
@@ -175,3 +168,31 @@ La estructura de este frontend busca no duplicar reglas de juego, sino actuar co
 * Se facilita el testing, mantenimiento y extensión del juego.
 
 # 
+
+# **Analisis de rendimiento**
+Esta sección la disponemos para informar que nuestro juego cuenta con todos los requerimientos implementados, pero a partir de una cierta cantidad de merge en cadena, combos o reacomodaciòn de grilla, el mismo Juego puede llegar a tardar unos segundos en actualizar la grilla o el puntaje, impidiendo la continuaciòn del juego. Hemos intentado corregirlo a partir de la respuesta brindada en la consulta, pero aún así el problema sigue persistiendo.
+En cuanto a los colores de los bloques, especialmente el 512 y 1024, pueden llegar a tener multiples colores asignados por mas de que ya tengan un color establecido en la clase Util.ts .
+
+
+# **Casos de test significativos**
+
+![Muestra Insercion](images/image1.jpg)
+_Figura 1: Muestra de inserciòn de bloque._
+
+![Fusion1](images/image2.jpg)                  ![Fusion2](images/image3.jpg)
+_Figura 2: Bloque a colisionar insertado._    _Figura 3: Bloque fusionado._
+
+![Grilla Antes de Cadena](images/image4.png)             ![Grilla Despues Cadena](images/image5.png)
+_Figura 4: Grilla antes de efectuar una cadena de combos._     _Figura 5: Grilla resultante combos._
+
+![AntesGravedad](images/image6.png)  ![Merge](images/image7.png)             ![GravedadyMerge](images/image8.png)
+_Figura 6: Grilla inicial._     _Figura 7: Grilla con merge del shoot._ _Figura 8: Grilla resultante de gravedad y nuevo merge._
+
+![cartel Perdiste](images/image9.png)    ![Reinicio](images/image10.png)
+_Figura 9: Cartel de perdiste._           _Figura 10: Grilla reiniciada._
+
+![Booster Pistas Activado](images/image11.png)
+_Figura 11: Booster Hint activado._
+
+![Booster Bloque Activado](images/image12.png)    ![Booster Bloque Activado](images/image13.png)
+_Figura 12: Booster Bloque desactivado._              _Figura 13: Booster Bloque activado._
