@@ -1,4 +1,4 @@
-# Proyecto: M2 Blocks - Comisión 16
+# Proyecto: M2 Blocks 
 
 ## Descripción
 El *M2 Blocks* (o *Merge 2 Blocks*) es un juego de puzzle y estrategia cuyo objetivo es lanzar y combinar bloques numerados para crear bloques de mayor valor y ganar puntos. Este proyecto fue desarrollado para la materia Lógica para Ciencias de la Computación (2025) por Guadalupe Nayla Elia y Maitena Cortes Ferber.
